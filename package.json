@@ -1,0 +1,37 @@
+{
+  "name": "trippr",
+  "version": "1.0.0",
+  "description": "Invoice and Duty Management System",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.2",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.26",
+    "gsap": "^3.14.2",
+    "lucide-react": "^0.562.0",
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0",
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(frontend-design:frontend-design)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npx create-next-app@latest)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(node ./node_modules/tailwindcss/lib/cli.js:*)",
+      "Bash(npm run build:*)",
+      "Bash(xcopy:*)",
+      "Bash(dir \"C:\\Users\\tanis\\Documents\\VSC Projects\\Javascript Projects\\tanishq-travels\")",
+      "Bash(dir \"C:\\Users\\tanis\\Documents\\VSC Projects\\Javascript Projects\")",
+      "Bash(dir:*)",
+      "Bash(del \"C:\\Users\\tanis\\Documents\\VSC Projects\\Javascript Projects\\reportGenerator\\src\\components\\HydrationGuard.tsx\")",
+      "WebSearch",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)",
+      "Bash(if exist node_modules rmdir /s /q node_modules)",
+      "Bash(if exist .next rmdir /s /q .next)",
+      "Bash(if exist package-lock.json del package-lock.json)",
+      "Bash(rm:*)"
+    ]
+  }
+}

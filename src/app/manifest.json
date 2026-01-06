@@ -1,0 +1,23 @@
+{
+  "name": "Trippr | Invoice & Duty Management",
+  "short_name": "Trippr",
+  "theme_color": "#f97316",
+  "background_color": "#fdf9f3",
+  "display": "standalone",
+  "description": "Professional invoice and duty management system",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
