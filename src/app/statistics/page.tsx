@@ -241,7 +241,7 @@ export default function StatisticsPage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 lg:space-y-8 pb-8"
+      className="space-y-6 lg:space-y-8"
     >
       {/* Header */}
       <div>
@@ -455,13 +455,26 @@ export default function StatisticsPage() {
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500" />
               <span className="text-sm text-navy-600">
-                Billed ({revenueStats.total > 0 ? ((revenueStats.billed / revenueStats.total) * 100).toFixed(0) : 0}%)
+                Billed (
+                {revenueStats.total > 0
+                  ? ((revenueStats.billed / revenueStats.total) * 100).toFixed(
+                      0
+                    )
+                  : 0}
+                %)
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-saffron-500" />
               <span className="text-sm text-navy-600">
-                Unbilled ({revenueStats.total > 0 ? ((revenueStats.unbilled / revenueStats.total) * 100).toFixed(0) : 0}%)
+                Unbilled (
+                {revenueStats.total > 0
+                  ? (
+                      (revenueStats.unbilled / revenueStats.total) *
+                      100
+                    ).toFixed(0)
+                  : 0}
+                %)
               </span>
             </div>
           </div>
@@ -476,7 +489,11 @@ export default function StatisticsPage() {
             {clientRevenueData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={clientRevenueData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e5e5e5"
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="name"
                     tick={{ fontSize: 11 }}
@@ -495,7 +512,7 @@ export default function StatisticsPage() {
                     contentStyle={{
                       borderRadius: "8px",
                       border: "1px solid #e5e5e5",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                     }}
                   />
                   <Bar dataKey="revenue" fill="#f97316" radius={[4, 4, 0, 0]} />
@@ -695,6 +712,26 @@ export default function StatisticsPage() {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="text-center pb-2 lg:pb-0 lg:pt-4 border-t border-cream-200"
+      >
+        <p className="text-sm text-navy-600">
+          Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
+          <a
+            href="https://github.com/tanishqmudaliar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
+          >
+            Tanishq Mudaliar
+          </a>
+        </p>
+      </motion.div>
     </motion.div>
   );
 }

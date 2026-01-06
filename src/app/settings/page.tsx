@@ -345,7 +345,7 @@ export default function SettingsPage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 lg:space-y-8 pb-8"
+      className="space-y-6 lg:space-y-8"
     >
       {/* Header */}
       <div>
@@ -1277,6 +1277,26 @@ export default function SettingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Footer */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="text-center pb-2 lg:pb-0 lg:pt-4 border-t border-cream-200"
+      >
+        <p className="text-sm text-navy-600">
+          Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
+          <a
+            href="https://github.com/tanishqmudaliar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
+          >
+            Tanishq Mudaliar
+          </a>
+        </p>
+      </motion.div>
     </motion.div>
   );
 }

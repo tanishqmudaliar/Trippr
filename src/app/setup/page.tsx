@@ -320,7 +320,7 @@ export default function SetupPage() {
         <style jsx>{`
           @font-face {
             font-family: "LogoFont";
-            src: url("/logo.ttf") format("truetype");
+            src: url("/fonts/logo.ttf") format("truetype");
             font-weight: normal;
             font-style: normal;
           }
@@ -877,6 +877,26 @@ export default function SetupPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Footer */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-center mt-8 pb-4"
+        >
+          <p className="text-sm text-navy-600">
+            Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
+            <a
+              href="https://github.com/tanishqmudaliar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
+            >
+              Tanishq Mudaliar
+            </a>
+          </p>
+        </motion.div>
       </motion.div>
     </div>
   );

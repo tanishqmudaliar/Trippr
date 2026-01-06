@@ -45,9 +45,7 @@ export function Sidebar() {
   }, []);
 
   // Split company name for display
-  const companyNameParts = companyInfo?.companyName?.split(" ") || [
-    "Trippr",
-  ];
+  const companyNameParts = companyInfo?.companyName?.split(" ") || ["Trippr"];
   const firstWord = companyNameParts[0] || "Trippr";
   const restWords = companyNameParts.slice(1).join(" ") || "";
 
@@ -56,7 +54,7 @@ export function Sidebar() {
       <style jsx>{`
         @font-face {
           font-family: "LogoFont";
-          src: url("/logo.ttf") format("truetype");
+          src: url("/fonts/logo.ttf") format("truetype");
           font-weight: normal;
           font-style: normal;
         }
@@ -64,10 +62,7 @@ export function Sidebar() {
       {/* Logo Header */}
       <div className="p-4 lg:p-6 border-b border-cream-200">
         <Link href="/" className="flex items-center gap-3 group">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <span
               style={{
                 fontFamily: "LogoFont, serif",

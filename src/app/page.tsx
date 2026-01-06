@@ -102,7 +102,7 @@ export default function Dashboard() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="space-y-6 lg:space-y-8 pb-8"
+      className="space-y-6 lg:space-y-8"
     >
       {/* Welcome Header */}
       <motion.div
@@ -264,7 +264,7 @@ export default function Dashboard() {
               Recent Invoices
             </h2>
             <Link
-              href="/statistics"
+              href="/invoice"
               className="text-saffron-600 hover:text-saffron-700 text-sm font-medium flex items-center gap-1"
             >
               View all <ArrowRight className="w-4 h-4" />
@@ -323,6 +323,26 @@ export default function Dashboard() {
           )}
         </motion.div>
       </div>
+
+      {/* Footer */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="text-center pb-2 lg:pb-0 lg:pt-4 border-t border-cream-200"
+      >
+        <p className="text-sm text-navy-600">
+          Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
+          <a
+            href="https://github.com/tanishqmudaliar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
+          >
+            Tanishq Mudaliar
+          </a>
+        </p>
+      </motion.div>
     </motion.div>
   );
 }
