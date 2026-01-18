@@ -17,6 +17,7 @@ import {
   numberToWords,
   decimalToTime,
   getEntryDayCount,
+  formatDuration,
 } from "@/lib/types";
 
 // Register Roboto font from Google Fonts (supports ₹ symbol)
@@ -419,7 +420,7 @@ export function InvoiceDocument({
                       {entry.totalKms}
                     </Text>
                     <Text style={[styles.tableCell, styles.cellHrs]}>
-                      {entry.totalTime.toFixed(2)}
+                      {formatDuration(entry.totalTime)}
                     </Text>
                     <Text
                       style={[
@@ -437,7 +438,9 @@ export function InvoiceDocument({
                         { color: entry.extraTime > 0 ? orange : navy },
                       ]}
                     >
-                      {entry.extraTime > 0 ? entry.extraTime.toFixed(2) : "-"}
+                      {entry.extraTime > 0
+                        ? formatDuration(entry.extraTime)
+                        : "-"}
                     </Text>
                     <Text
                       style={[
@@ -472,7 +475,7 @@ export function InvoiceDocument({
                   {totals.totalExtraKms}
                 </Text>
                 <Text style={[styles.tableHeaderCell, styles.cellExtraHrs]}>
-                  {totals.totalExtraHours.toFixed(2)}
+                  {formatDuration(totals.totalExtraHours)}
                 </Text>
                 <Text
                   style={[
@@ -482,7 +485,7 @@ export function InvoiceDocument({
                   ]}
                 >
                   {formatPDFCurrency(
-                    totals.totalTollParking + totals.totalAdditionalCharges
+                    totals.totalTollParking + totals.totalAdditionalCharges,
                   )}
                 </Text>
               </View>
@@ -502,7 +505,7 @@ export function InvoiceDocument({
                 </View>
                 <View style={styles.totalRow}>
                   <Text style={styles.totalLabel}>
-                    Extra Hours ({totals.totalExtraHours.toFixed(2)} x{" "}
+                    Extra Hours ({formatDuration(totals.totalExtraHours)} x{" "}
                     {formatPDFCurrency(client.extraHourRate)})
                   </Text>
                   <Text style={styles.totalValue}>
