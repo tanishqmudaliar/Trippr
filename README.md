@@ -1,15 +1,19 @@
 # Trippr
 
-> **Invoice & Duty Management System for Transport Businesses**
+A modern, offline-first invoice and duty management system for transport businesses, freelancers, and logistics service providers.
 
-A modern, offline-first web application for managing transport duty entries, generating professional PDF invoices, and tracking business statistics. Built with Next.js and designed for freelancers, small transport/logistics businesses, and service providers.
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Storage](https://img.shields.io/badge/Storage-localStorage-brightgreen.svg)
 
 ---
 
 ## Table of Contents
 
+- [Overview](#overview)
 - [Features](#features)
-- [Storage & Limitations](#storage--limitations)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
@@ -19,11 +23,18 @@ A modern, offline-first web application for managing transport duty entries, gen
 - [Multi-Day Entry System](#multi-day-entry-system)
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
-- [Cloud Backup (Future)](#cloud-backup-future)
-- [Styling System](#styling-system)
-- [Deployment](#deployment)
-- [Browser Support](#browser-support)
-- [Future Development](#future-development)
+- [Storage & Limitations](#storage--limitations)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Overview
+
+Trippr is a full-stack duty and invoice management solution designed for transport businesses that need to track vehicle duty entries, generate professional PDF invoices, and monitor business statistics—all without requiring an internet connection.
+
+Built with Next.js and Zustand, the application stores all data in the browser's localStorage, ensuring complete privacy and offline functionality. Features include multi-day entry support, Excel/CSV import, real-time statistics, and professional PDF invoice generation with Indian numbering format.
 
 ---
 
@@ -63,12 +74,9 @@ A modern, offline-first web application for managing transport duty entries, gen
   - Itemized duty entries table
   - Comprehensive totals breakdown
   - Amount in words (Indian numbering: Lakhs, Crores)
-  - Signature section
-  - Legal disclaimers
+  - Signature section and legal disclaimers
 - Real-time preview before download
-- Two tabs: "Create Invoice" and "Manage Invoices"
-- Edit existing invoices (change entries, dates, vehicle)
-- Delete invoices
+- Create, edit, and delete invoices
 
 ### Statistics & Analytics
 
@@ -78,9 +86,9 @@ A modern, offline-first web application for managing transport duty entries, gen
 - **Time Filters**: All time, Last 30 days, Custom range
 - **Unbilled Entries**: Grouped by client with potential revenue
 
-### Client Management
+### Client & Vehicle Management
 
-- Multiple clients with individual configurations:
+- Multiple clients with individual rate configurations:
   - Base KMs per day (included in daily rate)
   - Base hours per day (included in daily rate)
   - Per day rate (₹)
@@ -88,9 +96,6 @@ A modern, offline-first web application for managing transport duty entries, gen
   - Extra hour rate (₹)
   - Service tax percentage
 - Add, edit, delete clients
-
-### Vehicle Management
-
 - Track multiple vehicles (number plate, model)
 - Set default vehicle for invoices
 - Add, edit, delete vehicles
@@ -101,80 +106,22 @@ A modern, offline-first web application for managing transport duty entries, gen
 - Personal profile (name, time format 12hr/24hr)
 - Vehicle management
 - Client management
-- Cloud backup section (not yet configured)
-
----
-
-## Storage & Limitations
-
-### localStorage-Based Storage
-
-All data is stored in browser's localStorage. This enables:
-
-- **Offline functionality** - No internet required
-- **Privacy** - Data stays on your device
-- **No server costs** - Everything runs locally
-
-### Storage Capacity
-
-| Entries | Invoices | Estimated Size | Status              |
-| ------- | -------- | -------------- | ------------------- |
-| 500     | 100      | ~150 KB        | Safe                |
-| 2,000   | 400      | ~600 KB        | Safe                |
-| 5,000   | 1,000    | ~1.5 MB        | **Recommended Max** |
-| 10,000+ | 2,000+   | ~3-4 MB        | Risk of issues      |
-
-**Browser localStorage limit**: 5-10 MB (varies by browser)
-
-**Recommendation**: Keep under **5,000 entries** for optimal performance.
-
-### Known Limitations
-
-| Limitation            | Description                                       |
-| --------------------- | ------------------------------------------------- |
-| **Single Device**     | Data stored locally only; no sync between devices |
-| **Single User**       | No multi-user or access control                   |
-| **No Raw Export**     | Cannot export data (only PDF invoices)            |
-| **Browser Dependent** | Clearing browser data deletes everything          |
-| **Storage Cap**       | ~5,000 entries recommended maximum                |
-| **No Cloud Backup**   | Google Drive backup not yet configured            |
-
-### Data Safety Tips
-
-1. **Don't clear browser data** - All your data is in localStorage
-2. **Use same browser** - Data doesn't sync across browsers
-3. **Download invoices** - Keep PDF copies as records
-4. **Regular browser** - Don't use incognito/private mode
 
 ---
 
 ## Tech Stack
 
-### Core
-
-| Package    | Version | Purpose                                     |
-| ---------- | ------- | ------------------------------------------- |
-| Next.js    | 16.1.1  | React framework (App Router)                |
-| React      | 19.2.3  | UI library                                  |
-| TypeScript | 5.9.3   | Type-safe JavaScript                        |
-| Zustand    | 5.0.9   | State management + localStorage persistence |
-
-### UI & Styling
-
-| Package       | Version  | Purpose               |
-| ------------- | -------- | --------------------- |
-| Tailwind CSS  | 4.1.18   | Utility-first styling |
-| Framer Motion | 12.23.26 | Animations            |
-| Lucide React  | 0.562.0  | Icons                 |
-
-### Features
-
-| Package             | Version | Purpose           |
-| ------------------- | ------- | ----------------- |
-| @react-pdf/renderer | 4.3.2   | PDF generation    |
-| Recharts            | 3.6.0   | Charts (pie, bar) |
-| xlsx                | 0.18.5  | Excel/CSV parsing |
-| date-fns            | 4.1.0   | Date utilities    |
+| Layer                | Technologies                   |
+| -------------------- | ------------------------------ |
+| **Framework**        | Next.js 16 (App Router)        |
+| **Frontend**         | React 19, TypeScript 5         |
+| **State Management** | Zustand + localStorage persist |
+| **Styling**          | Tailwind CSS 4, Framer Motion  |
+| **PDF Generation**   | @react-pdf/renderer            |
+| **Charts**           | Recharts                       |
+| **File Parsing**     | xlsx                           |
+| **Icons**            | Lucide React                   |
+| **Utilities**        | date-fns, GSAP                 |
 
 ### Fonts
 
@@ -195,19 +142,28 @@ All data is stored in browser's localStorage. This enables:
 
 ### Installation
 
-```bash
-# Clone repository
-git clone https://github.com/tanishqmudaliar/trippr.git
-cd trippr
+1. **Clone the repository**
 
-# Install dependencies
-npm install
+   ```bash
+   git clone https://github.com/tanishqmudaliar/trippr.git
+   cd trippr
+   ```
 
-# Start development server
-npm run dev
-```
+2. **Install dependencies**
 
-Open [http://localhost:3000](http://localhost:3000)
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser**
+
+   Navigate to `http://localhost:3000`
 
 ### First Run Setup
 
@@ -217,7 +173,7 @@ Complete the 5-step wizard:
 2. **Personal Profile** - Your name, time format (12hr/24hr)
 3. **First Vehicle** - Number plate, model
 4. **First Client** - Name and rate configuration
-5. **Backup Setup** - Skip (not configured yet)
+5. **Backup Setup** - Optional configuration
 
 ### Scripts
 
@@ -233,43 +189,55 @@ npm run lint     # ESLint
 ## Project Structure
 
 ```
-src/
-├── app/                          # Next.js App Router
-│   ├── page.tsx                 # Dashboard (/)
-│   ├── entries/page.tsx         # Duty entries (/entries)
-│   ├── invoice/page.tsx         # Invoices (/invoice)
-│   ├── statistics/page.tsx      # Analytics (/statistics)
-│   ├── settings/page.tsx        # Settings (/settings)
-│   ├── setup/page.tsx           # Setup wizard (/setup)
-│   └── oauth-callback/page.tsx  # OAuth handler
+trippr/
+├── src/
+│   ├── app/                          # Next.js App Router
+│   │   ├── page.tsx                  # Dashboard (/)
+│   │   ├── entries/page.tsx          # Duty entries (/entries)
+│   │   ├── invoice/page.tsx          # Invoices (/invoice)
+│   │   ├── statistics/page.tsx       # Analytics (/statistics)
+│   │   ├── settings/page.tsx         # Settings (/settings)
+│   │   ├── setup/                    # Setup wizard (/setup)
+│   │   ├── oauth-callback/page.tsx   # OAuth handler
+│   │   ├── layout.tsx                # Root layout
+│   │   ├── globals.css               # Global styles
+│   │   └── not-found.tsx             # 404 page
+│   │
+│   ├── components/
+│   │   ├── AppProvider.tsx           # App context provider
+│   │   ├── Sidebar.tsx               # Navigation
+│   │   ├── SetupGuard.tsx            # Route protection
+│   │   ├── InvoicePDF.tsx            # PDF download button
+│   │   └── InvoicePDFDocument.tsx    # PDF template
+│   │
+│   ├── store/
+│   │   └── useStore.ts               # Zustand store
+│   │
+│   └── lib/
+│       ├── types.ts                  # TypeScript interfaces
+│       ├── encryption.ts             # Encryption utilities
+│       └── googleDrive.ts            # Google Drive API
 │
-├── components/
-│   ├── Sidebar.tsx              # Navigation
-│   ├── SetupGuard.tsx           # Route protection
-│   ├── InvoicePDF.tsx           # PDF download button
-│   └── InvoicePDFDocument.tsx   # PDF template
-│
-├── store/
-│   └── useStore.ts              # Zustand store
-│
-└── lib/
-    ├── types.ts                 # TypeScript interfaces
-    ├── encryption.ts            # Encryption (for future backup)
-    └── googleDrive.ts           # Google Drive API (not configured)
+├── public/                           # Static assets
+├── tailwind.config.ts                # Tailwind configuration
+├── package.json                      # Dependencies
+├── LICENSE                           # MIT License
+└── README.md                         # Project documentation
 ```
 
 ---
 
 ## Pages & Routes
 
-| Route         | Page       | Access    | Purpose              |
-| ------------- | ---------- | --------- | -------------------- |
-| `/`           | Dashboard  | Protected | Stats overview       |
-| `/entries`    | Entries    | Protected | Manage duty entries  |
-| `/invoice`    | Invoice    | Protected | Create/edit invoices |
-| `/statistics` | Statistics | Protected | Analytics & charts   |
-| `/settings`   | Settings   | Protected | App configuration    |
-| `/setup`      | Setup      | Public    | First-time wizard    |
+| Route            | Page       | Access    | Purpose              |
+| ---------------- | ---------- | --------- | -------------------- |
+| `/`              | Dashboard  | Protected | Stats overview       |
+| `/entries`       | Entries    | Protected | Manage duty entries  |
+| `/invoice`       | Invoice    | Protected | Create/edit invoices |
+| `/statistics`    | Statistics | Protected | Analytics & charts   |
+| `/settings`      | Settings   | Protected | App configuration    |
+| `/setup`         | Setup      | Public    | First-time wizard    |
+| `/oauth-callback`| OAuth      | Public    | OAuth handler        |
 
 **Route Protection**: `SetupGuard` redirects to `/setup` if setup not complete.
 
@@ -307,11 +275,11 @@ src/
 {
   id: string;
   name: string;
-  baseKmsPerDay: number; // Included KMs
-  baseHoursPerDay: number; // Included hours
-  perDayRate: number; // ₹ per day
-  extraKmRate: number; // ₹ per extra KM
-  extraHourRate: number; // ₹ per extra hour
+  baseKmsPerDay: number;     // Included KMs
+  baseHoursPerDay: number;   // Included hours
+  perDayRate: number;        // ₹ per day
+  extraKmRate: number;       // ₹ per extra KM
+  extraHourRate: number;     // ₹ per extra hour
   serviceTaxPercent: number; // Tax %
 }
 ```
@@ -384,12 +352,10 @@ Rounded Total = Math.round(Net Total)
 ### Three Modes
 
 1. **Same Daily**
-
    - Same start/end times each day
    - Total time = (timeOut - timeIn) × dayCount
 
 2. **Total Hours**
-
    - User enters total hours manually
    - Useful for irregular schedules
 
@@ -448,35 +414,27 @@ The system auto-detects columns by keywords:
 ## PDF Invoice Structure
 
 1. **Header**
-
    - "॥ Om Namah Shivaya ॥"
    - Company name and details
    - Invoice number and date
 
 2. **Client Section**
-
    - Client name
    - Vehicle number
 
 3. **Entry Table**
-
    - Date, Duty ID
    - KMs (total), Time (total)
    - Extra KMs, Extra Hours
    - Toll/Parking
 
 4. **Summary**
-
    - Per day amount (days × rate)
    - Extra KMs amount
    - Extra hours amount
-   - Subtotal
-   - Service tax
-   - Grand total
-   - Toll/parking
-   - Additional charges
-   - **Net total**
-   - **Rounded amount**
+   - Subtotal, Service tax, Grand total
+   - Toll/parking, Additional charges
+   - **Net total** and **Rounded amount**
    - Amount in words
 
 5. **Footer**
@@ -486,156 +444,100 @@ The system auto-detects columns by keywords:
 
 ---
 
-## Cloud Backup (Future)
+## Storage & Limitations
 
-> **Status**: Code written but **not configured**. Requires Google Cloud setup.
+### localStorage-Based Storage
 
-The backup system is built but requires Google Cloud OAuth configuration to work:
+All data is stored in browser's localStorage. This enables:
 
-### To Enable (Future)
+- **Offline functionality** - No internet required
+- **Privacy** - Data stays on your device
+- **No server costs** - Everything runs locally
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create project and enable Google Drive API
-3. Create OAuth 2.0 credentials
-4. Add authorized origins and redirect URIs
-5. Create `.env.local`:
-   ```env
-   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id
-   ```
+### Storage Capacity
 
-### When Configured (Will Support)
+| Entries | Invoices | Estimated Size | Status              |
+| ------- | -------- | -------------- | ------------------- |
+| 500     | 100      | ~150 KB        | Safe                |
+| 2,000   | 400      | ~600 KB        | Safe                |
+| 5,000   | 1,000    | ~1.5 MB        | **Recommended Max** |
+| 10,000+ | 2,000+   | ~3-4 MB        | Risk of issues      |
 
-- AES-256-GCM encrypted backups
-- Stored in hidden Google Drive app folder
-- Manual backup/restore
-- Backup history (keeps last 5)
+**Browser localStorage limit**: 5-10 MB (varies by browser)
 
----
+**Recommendation**: Keep under **5,000 entries** for optimal performance.
 
-## Styling System
+### Known Limitations
 
-### Color Palette
+| Limitation            | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| **Single Device**     | Data stored locally only; no sync between devices |
+| **Single User**       | No multi-user or access control                   |
+| **No Raw Export**     | Cannot export data (only PDF invoices)            |
+| **Browser Dependent** | Clearing browser data deletes everything          |
+| **Storage Cap**       | ~5,000 entries recommended maximum                |
 
-**Saffron (Primary - Orange)**
+### Data Safety Tips
 
-- Main: `#f97316` (saffron-500)
-- Range: saffron-50 to saffron-950
-
-**Navy (Secondary - Blue)**
-
-- Main dark: `#102a43` (navy-900)
-- Range: navy-50 to navy-950
-
-**Cream (Background)**
-
-- Light: `#fefdfb` (cream-50)
-- Range: cream-50 to cream-950
-
-### CSS Classes
-
-```css
-.input-field    /* Standard input styling */
-/* Standard input styling */
-/* Standard input styling */
-/* Standard input styling */
-.btn-primary    /* Orange gradient button */
-.btn-secondary  /* Outline button */
-.card           /* White card with shadow */
-.badge; /* Small label/tag */
-```
-
-### Animations
-
-- `fade-in`, `slide-up`, `slide-down`
-- `scale-in`, `shimmer`, `float`
+1. **Don't clear browser data** - All your data is in localStorage
+2. **Use same browser** - Data doesn't sync across browsers
+3. **Download invoices** - Keep PDF copies as records
+4. **Regular browser** - Don't use incognito/private mode
 
 ---
 
-## Deployment
+## Troubleshooting
 
-### Vercel (Recommended)
+### "Data not saving"
 
-```bash
-npm i -g vercel
-vercel
-```
+- Ensure localStorage is not disabled in browser settings
+- Check if storage quota is exceeded
+- Try clearing old entries if storage is full
 
-### Docker
+### "PDF not generating"
 
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-CMD ["npm", "start"]
-```
+- Ensure all required fields are filled in company settings
+- Check browser console for errors
+- Try with fewer entries if the PDF is too large
 
-### Build Output
+### "Import not working"
 
-Static pages: `/`, `/entries`, `/invoice`, `/statistics`, `/settings`, `/setup`
+- Verify file format (.xlsx, .xls, or .csv)
+- Check that column headers match expected keywords
+- Ensure dates are in recognizable format
 
----
+### "Charts not displaying"
 
-## Browser Support
+- Ensure there are entries in the selected time range
+- Check browser console for JavaScript errors
+- Try refreshing the page
 
-| Browser | Minimum |
-| ------- | ------- |
-| Chrome  | 60+     |
-| Firefox | 55+     |
-| Safari  | 11+     |
-| Edge    | 79+     |
+### "Setup wizard keeps appearing"
 
-**Not Supported**: Internet Explorer, Opera Mini
-
-### Required APIs
-
-- localStorage
-- Web Crypto API
-- File API
-- Fetch API
-
----
-
-## Future Development
-
-### Planned Features
-
-- [ ] Google Cloud backup configuration
-- [ ] PWA support (installable app)
-- [ ] Auto-backup on changes
-- [ ] Direct print option
-- [ ] Export statistics as Excel
-
-### Known Issues
-
-- Single device only (no sync)
-- localStorage limit (~5MB)
-- No multi-user support
+- Complete all setup steps
+- Check if localStorage is working properly
+- Try a different browser
 
 ---
 
 ## Contributing
 
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-## Support
+Made with ❤️ by Tanishq Mudaliar
 
-- **Issues**: [GitHub Issues](https://github.com/tanishqmudaliar/trippr/issues)
-
----
-
-_Built with Next.js, TypeScript, and Zustand_
+**Stop juggling spreadsheets. Manage duties, generate invoices, track everything—offline! 🚗**
