@@ -53,6 +53,8 @@ export interface DutyEntry {
   timeOut: number;
   tollParking: number;
   additionalCharges?: AdditionalCharge[];
+  remark?: string; // Optional remark for the entry
+  cancelled?: boolean; // For single day - client booked but cancelled (only charges day cost)
   // Calculated fields
   totalKms: number;
   totalTime: number;
@@ -113,12 +115,30 @@ export function generateDutyId(): string {
 }
 
 export function calculateDutyEntry(
-  entry: Omit<DutyEntry, "totalKms" | "totalTime" | "extraKms" | "extraTime" | "id" | "createdAt"> & {
+  entry: Omit<
+    DutyEntry,
+    "totalKms" | "totalTime" | "extraKms" | "extraTime" | "id" | "createdAt"
+  > & {
     // Optional overrides for multi-day entries
     overrideTotalTime?: number;
   },
-  client: Client
+  client: Client,
 ): DutyEntry {
+  // If entry is cancelled (single day booking cancelled), km and hours are 0
+  // Only day cost is charged
+  if (entry.cancelled) {
+    const { overrideTotalTime, ...cleanEntry } = entry;
+    return {
+      ...cleanEntry,
+      id: generateId(),
+      totalKms: 0,
+      totalTime: 0,
+      extraKms: 0,
+      extraTime: 0,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
   const totalKms = entry.closingKms - entry.startingKms;
 
   // Calculate day count for multi-day entries
@@ -131,19 +151,25 @@ export function calculateDutyEntry(
   }
 
   // Use override if provided, otherwise calculate from timeIn/timeOut
+  // For single day, handle time wrapping (if timeOut < timeIn, add 24 hours)
   // For multi-day "sameDaily" mode, multiply daily time by day count
   let totalTime: number;
   if (entry.overrideTotalTime !== undefined) {
     totalTime = entry.overrideTotalTime;
   } else {
-    const dailyTime = entry.timeOut - entry.timeIn;
+    let dailyTime = entry.timeOut - entry.timeIn;
+    // For single day entries, if timeOut is before timeIn, it means it wrapped to next day
+    // but still counts as 1 day (within 24 hours)
+    if (dayCount === 1 && dailyTime < 0) {
+      dailyTime = dailyTime + 24; // Add 24 hours for wrap-around
+    }
     totalTime = dailyTime * dayCount;
   }
 
   // Extra KMs: total KMs minus (base KMs per day × day count)
-  const extraKms = Math.max(0, totalKms - (client.baseKmsPerDay * dayCount));
+  const extraKms = Math.max(0, totalKms - client.baseKmsPerDay * dayCount);
   // Extra Time: total time minus (base hours per day × day count)
-  const extraTime = Math.max(0, totalTime - (client.baseHoursPerDay * dayCount));
+  const extraTime = Math.max(0, totalTime - client.baseHoursPerDay * dayCount);
 
   // Clean up the override property before storing
   const { overrideTotalTime, ...cleanEntry } = entry;
@@ -173,8 +199,17 @@ export function getEntryDayCount(entry: DutyEntry): number {
 
 export function calculateInvoiceTotals(
   entries: DutyEntry[],
-  client: Client
-): Omit<Invoice, "id" | "invoiceNumber" | "invoiceDate" | "clientId" | "vehicleNumberForInvoice" | "entryIds" | "createdAt"> {
+  client: Client,
+): Omit<
+  Invoice,
+  | "id"
+  | "invoiceNumber"
+  | "invoiceDate"
+  | "clientId"
+  | "vehicleNumberForInvoice"
+  | "entryIds"
+  | "createdAt"
+> {
   // Count total days including multi-day entries
   const totalDays = entries.reduce((sum, e) => sum + getEntryDayCount(e), 0);
   const totalExtraKms = entries.reduce((sum, e) => sum + e.extraKms, 0);
@@ -184,7 +219,10 @@ export function calculateInvoiceTotals(
   // Sum all additional charges from all entries
   const totalAdditionalCharges = entries.reduce((sum, e) => {
     if (!e.additionalCharges) return sum;
-    return sum + e.additionalCharges.reduce((chargeSum, c) => chargeSum + c.amount, 0);
+    return (
+      sum +
+      e.additionalCharges.reduce((chargeSum, c) => chargeSum + c.amount, 0)
+    );
   }, 0);
 
   const perDayAmount = totalDays * client.perDayRate;
@@ -192,7 +230,9 @@ export function calculateInvoiceTotals(
   const extraHoursAmount = totalExtraHours * client.extraHourRate;
 
   const subTotal = perDayAmount + extraKmsAmount + extraHoursAmount;
-  const serviceTax = client.serviceTaxPercent ? subTotal * (client.serviceTaxPercent / 100) : 0;
+  const serviceTax = client.serviceTaxPercent
+    ? subTotal * (client.serviceTaxPercent / 100)
+    : 0;
   const grandTotal = subTotal + serviceTax;
   // Net total now includes toll/parking AND additional charges
   const netTotal = grandTotal + totalTollParking + totalAdditionalCharges;
@@ -242,7 +282,10 @@ export function formatDate(dateString: string): string {
   }
 }
 
-export function decimalToTime(decimal: number, format: "12hr" | "24hr" = "24hr"): string {
+export function decimalToTime(
+  decimal: number,
+  format: "12hr" | "24hr" = "24hr",
+): string {
   if (isNaN(decimal) || decimal === undefined || decimal === null) {
     return format === "12hr" ? "12:00 AM" : "00:00";
   }
@@ -284,7 +327,11 @@ export function timeToDecimal(time: string): number {
 
 // Format decimal hours as duration string (e.g., 2.75 → "2:45")
 export function formatDuration(decimalHours: number): string {
-  if (isNaN(decimalHours) || decimalHours === undefined || decimalHours === null) {
+  if (
+    isNaN(decimalHours) ||
+    decimalHours === undefined ||
+    decimalHours === null
+  ) {
     return "0:00";
   }
   const hours = Math.floor(Math.abs(decimalHours));
@@ -300,14 +347,51 @@ export function numberToWords(num: number): string {
   num = Math.round(num);
   if (num === 0) return "RUPEES ZERO ONLY";
 
-  const ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"];
-  const tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+  const ones = [
+    "",
+    "ONE",
+    "TWO",
+    "THREE",
+    "FOUR",
+    "FIVE",
+    "SIX",
+    "SEVEN",
+    "EIGHT",
+    "NINE",
+    "TEN",
+    "ELEVEN",
+    "TWELVE",
+    "THIRTEEN",
+    "FOURTEEN",
+    "FIFTEEN",
+    "SIXTEEN",
+    "SEVENTEEN",
+    "EIGHTEEN",
+    "NINETEEN",
+  ];
+  const tens = [
+    "",
+    "",
+    "TWENTY",
+    "THIRTY",
+    "FORTY",
+    "FIFTY",
+    "SIXTY",
+    "SEVENTY",
+    "EIGHTY",
+    "NINETY",
+  ];
 
   function convertLessThanThousand(n: number): string {
     if (n === 0) return "";
     if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-    return ones[Math.floor(n / 100)] + " HUNDRED" + (n % 100 ? " " + convertLessThanThousand(n % 100) : "");
+    if (n < 100)
+      return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    return (
+      ones[Math.floor(n / 100)] +
+      " HUNDRED" +
+      (n % 100 ? " " + convertLessThanThousand(n % 100) : "")
+    );
   }
 
   const crore = Math.floor(num / 10000000);

@@ -82,14 +82,36 @@ interface AppState {
   deleteClient: (id: string) => void;
 
   // Actions - Entries
-  addEntry: (entry: Omit<DutyEntry, "totalKms" | "totalTime" | "extraKms" | "extraTime" | "id" | "createdAt"> & { overrideTotalTime?: number }) => void;
-  updateEntry: (id: string, entry: Partial<DutyEntry> & { overrideTotalTime?: number }) => void;
+  addEntry: (
+    entry: Omit<
+      DutyEntry,
+      "totalKms" | "totalTime" | "extraKms" | "extraTime" | "id" | "createdAt"
+    > & { overrideTotalTime?: number },
+  ) => void;
+  updateEntry: (
+    id: string,
+    entry: Partial<DutyEntry> & { overrideTotalTime?: number },
+  ) => void;
   deleteEntry: (id: string) => void;
   clearEntries: () => void;
 
   // Actions - Invoices
-  createInvoice: (invoiceNumber: string, invoiceDate: string, clientId: string, vehicleNumber: string, entryIds: string[]) => Invoice | null;
-  updateInvoice: (id: string, updates: { invoiceNumber?: string; invoiceDate?: string; vehicleNumberForInvoice?: string; entryIds?: string[] }) => Invoice | null;
+  createInvoice: (
+    invoiceNumber: string,
+    invoiceDate: string,
+    clientId: string,
+    vehicleNumber: string,
+    entryIds: string[],
+  ) => Invoice | null;
+  updateInvoice: (
+    id: string,
+    updates: {
+      invoiceNumber?: string;
+      invoiceDate?: string;
+      vehicleNumberForInvoice?: string;
+      entryIds?: string[];
+    },
+  ) => Invoice | null;
   deleteInvoice: (id: string) => void;
 
   // Actions - Messages
@@ -197,7 +219,10 @@ export const useStore = create<AppState>()(
         };
         set((state) => ({
           vehicles: vehicle.isDefault
-            ? [...state.vehicles.map((v) => ({ ...v, isDefault: false })), newVehicle]
+            ? [
+                ...state.vehicles.map((v) => ({ ...v, isDefault: false })),
+                newVehicle,
+              ]
             : [...state.vehicles, newVehicle],
           successMessage: "Vehicle added",
         }));
@@ -207,11 +232,11 @@ export const useStore = create<AppState>()(
         set((state) => ({
           vehicles: updates.isDefault
             ? state.vehicles.map((v) =>
-                v.id === id
-                  ? { ...v, ...updates }
-                  : { ...v, isDefault: false }
+                v.id === id ? { ...v, ...updates } : { ...v, isDefault: false },
               )
-            : state.vehicles.map((v) => (v.id === id ? { ...v, ...updates } : v)),
+            : state.vehicles.map((v) =>
+                v.id === id ? { ...v, ...updates } : v,
+              ),
           successMessage: "Vehicle updated",
         }));
       },
@@ -256,7 +281,9 @@ export const useStore = create<AppState>()(
 
       updateClient: (id, updates) => {
         set((state) => ({
-          clients: state.clients.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+          clients: state.clients.map((c) =>
+            c.id === id ? { ...c, ...updates } : c,
+          ),
           successMessage: "Client updated",
         }));
       },
@@ -293,13 +320,25 @@ export const useStore = create<AppState>()(
             const { overrideTotalTime, ...cleanUpdates } = updates;
             const updated = { ...entry, ...cleanUpdates };
 
+            // If entry is cancelled, set km and time to 0
+            if (updated.cancelled) {
+              updated.totalKms = 0;
+              updated.totalTime = 0;
+              updated.extraKms = 0;
+              updated.extraTime = 0;
+              return updated;
+            }
+
             // Calculate day count for multi-day entries
             let dayCount = 1;
             if (updated.endDate && updated.endDate !== updated.date) {
               const start = new Date(updated.date);
               const end = new Date(updated.endDate);
               const diffTime = end.getTime() - start.getTime();
-              dayCount = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+              dayCount = Math.max(
+                1,
+                Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1,
+              );
             }
 
             updated.totalKms = updated.closingKms - updated.startingKms;
@@ -309,12 +348,22 @@ export const useStore = create<AppState>()(
               updated.totalTime = overrideTotalTime;
             } else {
               // For sameDaily mode or single day: dailyTime × dayCount
-              const dailyTime = updated.timeOut - updated.timeIn;
+              let dailyTime = updated.timeOut - updated.timeIn;
+              // For single day entries, handle time wrap-around
+              if (dayCount === 1 && dailyTime < 0) {
+                dailyTime = dailyTime + 24; // Add 24 hours for wrap-around
+              }
               updated.totalTime = dailyTime * dayCount;
             }
 
-            updated.extraKms = Math.max(0, updated.totalKms - (client.baseKmsPerDay * dayCount));
-            updated.extraTime = Math.max(0, updated.totalTime - (client.baseHoursPerDay * dayCount));
+            updated.extraKms = Math.max(
+              0,
+              updated.totalKms - client.baseKmsPerDay * dayCount,
+            );
+            updated.extraTime = Math.max(
+              0,
+              updated.totalTime - client.baseHoursPerDay * dayCount,
+            );
             return updated;
           });
           return { entries, successMessage: "Entry updated" };
@@ -333,7 +382,13 @@ export const useStore = create<AppState>()(
       },
 
       // Invoice Actions
-      createInvoice: (invoiceNumber, invoiceDate, clientId, vehicleNumber, entryIds) => {
+      createInvoice: (
+        invoiceNumber,
+        invoiceDate,
+        clientId,
+        vehicleNumber,
+        entryIds,
+      ) => {
         const state = get();
         const client = state.clients.find((c) => c.id === clientId);
         if (!client) {
@@ -384,7 +439,9 @@ export const useStore = create<AppState>()(
         // If entryIds changed, recalculate totals with current client rates
         let newTotals = {};
         if (updates.entryIds) {
-          const entries = state.entries.filter((e) => updates.entryIds!.includes(e.id));
+          const entries = state.entries.filter((e) =>
+            updates.entryIds!.includes(e.id),
+          );
           if (entries.length === 0) {
             set({ error: "No entries selected" });
             return null;
@@ -399,7 +456,9 @@ export const useStore = create<AppState>()(
         };
 
         set((state) => ({
-          invoices: state.invoices.map((i) => (i.id === id ? updatedInvoice : i)),
+          invoices: state.invoices.map((i) =>
+            i.id === id ? updatedInvoice : i,
+          ),
           successMessage: "Invoice updated",
         }));
 
@@ -454,7 +513,10 @@ export const useStore = create<AppState>()(
               const start = new Date(entry.date);
               const end = new Date(entry.endDate);
               const diffTime = end.getTime() - start.getTime();
-              dayCount = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+              dayCount = Math.max(
+                1,
+                Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1,
+              );
             }
 
             const totalKms = entry.closingKms - entry.startingKms;
@@ -467,8 +529,14 @@ export const useStore = create<AppState>()(
               totalTime = dailyTime * dayCount;
             }
 
-            const extraKms = Math.max(0, totalKms - (client.baseKmsPerDay * dayCount));
-            const extraTime = Math.max(0, totalTime - (client.baseHoursPerDay * dayCount));
+            const extraKms = Math.max(
+              0,
+              totalKms - client.baseKmsPerDay * dayCount,
+            );
+            const extraTime = Math.max(
+              0,
+              totalTime - client.baseHoursPerDay * dayCount,
+            );
 
             return {
               ...entry,
@@ -483,6 +551,6 @@ export const useStore = create<AppState>()(
           useStore.setState({ entries: recalculatedEntries });
         }
       },
-    }
-  )
+    },
+  ),
 );

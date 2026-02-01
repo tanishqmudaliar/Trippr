@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
 import {
@@ -144,7 +144,7 @@ function CreateInvoiceTab() {
 
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
   const [vehicleNumber, setVehicleNumber] = useState("");
 
@@ -195,7 +195,7 @@ function CreateInvoiceTab() {
 
   const toggleEntry = (id: string) => {
     setSelectedEntries((prev) =>
-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id],
     );
   };
 
@@ -238,7 +238,7 @@ function CreateInvoiceTab() {
       invoiceDate,
       selectedClientId,
       vehicleNumber,
-      selectedEntries
+      selectedEntries,
     );
   };
 
@@ -430,7 +430,7 @@ function EditInvoiceTab() {
 
   const toggleEntry = (id: string) => {
     setEditedEntries((prev) =>
-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id],
     );
   };
 
@@ -518,7 +518,7 @@ function EditInvoiceTab() {
               const client = clients.find((c) => c.id === invoice.clientId);
               const isSelected = selectedInvoiceId === invoice.id;
               const invoiceEntries = entries.filter((e) =>
-                invoice.entryIds.includes(e.id)
+                invoice.entryIds.includes(e.id),
               );
               const invoiceTotals = client
                 ? calculateInvoiceTotals(invoiceEntries, client)
@@ -1466,52 +1466,63 @@ function InvoicePreview({
               const entryDays = getEntryDayCount(entry);
               const isMultiDay = entryDays > 1;
               return (
-                <tr
-                  key={idx}
-                  className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}
-                >
-                  <td className="border border-cream-200 p-2">
-                    {isMultiDay ? (
-                      <div>
-                        <div className="text-xs text-saffron-600 font-medium">
-                          {entryDays} days
-                        </div>
+                <React.Fragment key={idx}>
+                  <tr className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}>
+                    <td className="border border-cream-200 p-2">
+                      {isMultiDay ? (
                         <div>
-                          {formatDate(entry.date)} →{" "}
-                          {formatDate(entry.endDate!)}
+                          <div className="text-xs text-saffron-600 font-medium">
+                            {entryDays} days
+                          </div>
+                          <div>
+                            {formatDate(entry.date)} →{" "}
+                            {formatDate(entry.endDate!)}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      formatDate(entry.date)
-                    )}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center font-mono">
-                    {entry.dutyId}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center">
-                    {decimalToTime(entry.timeIn, timeFormat)}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center">
-                    {decimalToTime(entry.timeOut, timeFormat)}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center font-mono">
-                    {entry.totalKms}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center font-mono">
-                    {formatDuration(entry.totalTime)}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
-                    {entry.extraKms > 0 ? entry.extraKms : "-"}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
-                    {entry.extraTime > 0
-                      ? formatDuration(entry.extraTime)
-                      : "-"}
-                  </td>
-                  <td className="border border-cream-200 p-2 text-right font-mono">
-                    {formatCurrency(entryTotalCharges)}
-                  </td>
-                </tr>
+                      ) : (
+                        formatDate(entry.date)
+                      )}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center font-mono">
+                      {entry.dutyId}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center">
+                      {decimalToTime(entry.timeIn, timeFormat)}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center">
+                      {decimalToTime(entry.timeOut, timeFormat)}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center font-mono">
+                      {entry.totalKms}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center font-mono">
+                      {formatDuration(entry.totalTime)}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
+                      {entry.extraKms > 0 ? entry.extraKms : "-"}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
+                      {entry.extraTime > 0
+                        ? formatDuration(entry.extraTime)
+                        : "-"}
+                    </td>
+                    <td className="border border-cream-200 p-2 text-right font-mono">
+                      {formatCurrency(entryTotalCharges)}
+                    </td>
+                  </tr>
+                  {/* Remark row - only shown if remark exists */}
+                  {entry.remark && (
+                    <tr className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}>
+                      <td
+                        colSpan={9}
+                        className="border border-cream-200 p-2 text-left text-sm italic text-navy-600"
+                      >
+                        <span className="font-semibold">REMARK:</span>{" "}
+                        {entry.remark}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
             <tr className="bg-saffron-100 font-semibold">
@@ -1529,7 +1540,7 @@ function InvoicePreview({
               </td>
               <td className="border border-saffron-200 p-2 text-right font-mono">
                 {formatCurrency(
-                  totals.totalTollParking + totals.totalAdditionalCharges
+                  totals.totalTollParking + totals.totalAdditionalCharges,
                 )}
               </td>
             </tr>

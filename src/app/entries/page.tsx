@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
 import {
@@ -20,6 +20,8 @@ import {
   FileSpreadsheet,
   Loader2,
   Hash,
+  MessageSquare,
+  Ban,
 } from "lucide-react";
 import {
   formatDate,
@@ -62,7 +64,7 @@ function TimeInput12Hour({
   const updateTime = (
     newHours: number,
     newMinutes: number,
-    newPeriod: string
+    newPeriod: string,
   ) => {
     let hours24 = newHours;
     if (newPeriod === "PM" && newHours !== 12) hours24 = newHours + 12;
@@ -140,7 +142,7 @@ function TimeInput12HourCompact({
   const updateTime = (
     newHours: number,
     newMinutes: number,
-    newPeriod: string
+    newPeriod: string,
   ) => {
     let hours24 = newHours;
     if (newPeriod === "PM" && newHours !== 12) hours24 = newHours + 12;
@@ -225,7 +227,7 @@ export default function EntriesPage() {
     }>
   >([]);
   const [uploadClientId, setUploadClientId] = useState<string>(
-    clients[0]?.id || ""
+    clients[0]?.id || "",
   );
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -244,6 +246,8 @@ export default function EntriesPage() {
     timeIn: "09:00",
     timeOut: "17:00",
     tollParking: "0",
+    remark: "",
+    cancelled: false,
   });
 
   // Additional charges state
@@ -262,6 +266,8 @@ export default function EntriesPage() {
       timeIn: "09:00",
       timeOut: "17:00",
       tollParking: "0",
+      remark: "",
+      cancelled: false,
     });
     setAdditionalCharges([]);
     setEditingId(null);
@@ -289,7 +295,7 @@ export default function EntriesPage() {
     if (perDayTimes.length !== count) {
       const newTimes = Array.from(
         { length: count },
-        (_, i) => perDayTimes[i] || { timeIn: "08:00", timeOut: "17:00" }
+        (_, i) => perDayTimes[i] || { timeIn: "08:00", timeOut: "17:00" },
       );
       setPerDayTimes(newTimes);
     }
@@ -314,14 +320,18 @@ export default function EntriesPage() {
     if (dateMode === "multi" && formData.endDate < formData.date) {
       errors.push("End Date must be after Start Date");
     }
-    if (isNaN(startKms) || startKms < 0) {
-      errors.push("Starting KMs must be a valid positive number");
-    }
-    if (isNaN(closeKms) || closeKms < 0) {
-      errors.push("Closing KMs must be a valid positive number");
-    }
-    if (closeKms <= startKms) {
-      errors.push("Closing KMs must be greater than Starting KMs");
+
+    // Skip km validation if entry is cancelled (single day cancelled booking)
+    if (!formData.cancelled) {
+      if (isNaN(startKms) || startKms < 0) {
+        errors.push("Starting KMs must be a valid positive number");
+      }
+      if (isNaN(closeKms) || closeKms < 0) {
+        errors.push("Closing KMs must be a valid positive number");
+      }
+      if (closeKms <= startKms) {
+        errors.push("Closing KMs must be greater than Starting KMs");
+      }
     }
 
     // Validate toll/parking
@@ -331,14 +341,15 @@ export default function EntriesPage() {
     }
 
     // Validate time based on mode
-    if (
-      dateMode === "single" ||
-      (dateMode === "multi" && multiTimeMode === "sameDaily")
-    ) {
+    // For single day, no time validation needed as time can wrap around (24 hours from time in)
+    // For multi-day with sameDaily, time must be within the same day (00:00 to 23:59)
+    if (dateMode === "multi" && multiTimeMode === "sameDaily") {
       const timeIn = timeToDecimal(formData.timeIn);
       const timeOut = timeToDecimal(formData.timeOut);
       if (timeOut <= timeIn) {
-        errors.push("Time Out must be after Time In");
+        errors.push(
+          "Time Out must be after Time In (within the same day for multi-day entries)",
+        );
       }
     } else if (dateMode === "multi" && multiTimeMode === "totalHours") {
       const totalHrs = parseFloat(manualTotalHours);
@@ -378,7 +389,7 @@ export default function EntriesPage() {
 
     // Filter out empty additional charges
     const validCharges = additionalCharges.filter(
-      (c) => c.label.trim() && c.amount >= 0
+      (c) => c.label.trim() && c.amount >= 0,
     );
 
     if (editingId) {
@@ -404,12 +415,14 @@ export default function EntriesPage() {
         date: formData.date,
         endDate: dateMode === "multi" ? formData.endDate : undefined,
         dutyId: formData.dutyId || generateDutyId(),
-        startingKms: parseInt(formData.startingKms),
-        closingKms: parseInt(formData.closingKms),
+        startingKms: formData.cancelled ? 0 : parseInt(formData.startingKms),
+        closingKms: formData.cancelled ? 0 : parseInt(formData.closingKms),
         timeIn: timeToDecimal(formData.timeIn),
         timeOut: timeToDecimal(formData.timeOut),
         tollParking: parseFloat(formData.tollParking) || 0,
         additionalCharges: validCharges.length > 0 ? validCharges : undefined,
+        remark: formData.remark.trim() || undefined,
+        cancelled: dateMode === "single" ? formData.cancelled : undefined,
         overrideTotalTime,
       };
       updateEntry(editingId, entryData);
@@ -441,6 +454,7 @@ export default function EntriesPage() {
         timeOut: timeToDecimal(formData.timeOut),
         tollParking: parseFloat(formData.tollParking) || 0,
         additionalCharges: validCharges.length > 0 ? validCharges : undefined,
+        remark: formData.remark.trim() || undefined,
         overrideTotalTime,
       };
       addEntry(entryData);
@@ -450,12 +464,14 @@ export default function EntriesPage() {
         clientId: formData.clientId,
         date: formData.date,
         dutyId: formData.dutyId || generateDutyId(),
-        startingKms: parseInt(formData.startingKms),
-        closingKms: parseInt(formData.closingKms),
+        startingKms: formData.cancelled ? 0 : parseInt(formData.startingKms),
+        closingKms: formData.cancelled ? 0 : parseInt(formData.closingKms),
         timeIn: timeToDecimal(formData.timeIn),
         timeOut: timeToDecimal(formData.timeOut),
         tollParking: parseFloat(formData.tollParking) || 0,
         additionalCharges: validCharges.length > 0 ? validCharges : undefined,
+        remark: formData.remark.trim() || undefined,
+        cancelled: formData.cancelled || undefined,
       };
       addEntry(entryData);
     }
@@ -478,6 +494,8 @@ export default function EntriesPage() {
       timeIn: decimalToTime(entry.timeIn, "24hr"),
       timeOut: decimalToTime(entry.timeOut, "24hr"),
       tollParking: entry.tollParking.toString(),
+      remark: entry.remark || "",
+      cancelled: entry.cancelled || false,
     });
     setAdditionalCharges(entry.additionalCharges || []);
     setDateMode(isMultiDay ? "multi" : "single");
@@ -497,7 +515,7 @@ export default function EntriesPage() {
         Array.from({ length: days }, () => ({
           timeIn: decimalToTime(entry.timeIn, "24hr"),
           timeOut: decimalToTime(entry.timeOut, "24hr"),
-        }))
+        })),
       );
     } else {
       setMultiTimeMode("sameDaily");
@@ -518,7 +536,7 @@ export default function EntriesPage() {
   const updateAdditionalCharge = (
     index: number,
     field: "label" | "amount",
-    value: string | number
+    value: string | number,
   ) => {
     const updated = [...additionalCharges];
     if (field === "label") {
@@ -549,14 +567,14 @@ export default function EntriesPage() {
         await parseSpreadsheet(file);
       } else {
         setParseError(
-          "Unsupported file format. Please use Excel (.xlsx, .xls) or CSV files."
+          "Unsupported file format. Please use Excel (.xlsx, .xls) or CSV files.",
         );
       }
     } catch (err) {
       setParseError(
         `Error parsing file: ${
           err instanceof Error ? err.message : "Unknown error"
-        }`
+        }`,
       );
     } finally {
       setIsParsingFile(false);
@@ -580,27 +598,27 @@ export default function EntriesPage() {
 
     // Try to find header row and map columns
     const headers = (data[0] as string[]).map((h) =>
-      String(h).toLowerCase().trim()
+      String(h).toLowerCase().trim(),
     );
 
     const dateIdx = headers.findIndex((h) => h.includes("date"));
     const dutyIdIdx = headers.findIndex(
-      (h) => h.includes("duty") || h.includes("id")
+      (h) => h.includes("duty") || h.includes("id"),
     );
     const startKmsIdx = headers.findIndex(
-      (h) => h.includes("start") && h.includes("km")
+      (h) => h.includes("start") && h.includes("km"),
     );
     const closeKmsIdx = headers.findIndex(
-      (h) => (h.includes("close") || h.includes("end")) && h.includes("km")
+      (h) => (h.includes("close") || h.includes("end")) && h.includes("km"),
     );
     const timeInIdx = headers.findIndex(
-      (h) => h.includes("time") && (h.includes("in") || h.includes("start"))
+      (h) => h.includes("time") && (h.includes("in") || h.includes("start")),
     );
     const timeOutIdx = headers.findIndex(
-      (h) => h.includes("time") && (h.includes("out") || h.includes("end"))
+      (h) => h.includes("time") && (h.includes("out") || h.includes("end")),
     );
     const tollIdx = headers.findIndex(
-      (h) => h.includes("toll") || h.includes("parking")
+      (h) => h.includes("toll") || h.includes("parking"),
     );
 
     const parsedEntries = [];
@@ -648,7 +666,7 @@ export default function EntriesPage() {
 
     if (parsedEntries.length === 0) {
       setParseError(
-        "No valid entries found in the file. Please check the format."
+        "No valid entries found in the file. Please check the format.",
       );
       return;
     }
@@ -678,7 +696,7 @@ export default function EntriesPage() {
 
   const toggleEntrySelection = (index: number) => {
     setUploadedEntries((prev) =>
-      prev.map((e, i) => (i === index ? { ...e, selected: !e.selected } : e))
+      prev.map((e, i) => (i === index ? { ...e, selected: !e.selected } : e)),
     );
   };
 
@@ -689,7 +707,7 @@ export default function EntriesPage() {
       result = result.filter((e) => e.clientId === filterClientId);
     }
     return result.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
   }, [entries, filterClientId]);
 
@@ -704,18 +722,27 @@ export default function EntriesPage() {
   const baseKms = selectedClient?.baseKmsPerDay || 80;
   const baseHours = selectedClient?.baseHoursPerDay || 8;
 
-  const previewKms =
-    formData.closingKms && formData.startingKms
+  // If cancelled, KMs and time are 0
+  const previewKms = formData.cancelled
+    ? 0
+    : formData.closingKms && formData.startingKms
       ? parseInt(formData.closingKms) - parseInt(formData.startingKms)
       : 0;
 
   // Calculate preview time based on mode
   let previewTime = 0;
-  if (dateMode === "single") {
-    previewTime =
+  if (formData.cancelled) {
+    previewTime = 0;
+  } else if (dateMode === "single") {
+    let dailyTime =
       formData.timeOut && formData.timeIn
         ? timeToDecimal(formData.timeOut) - timeToDecimal(formData.timeIn)
         : 0;
+    // Handle time wrap-around for single day (e.g., 23:00 to 02:00)
+    if (dailyTime < 0) {
+      dailyTime = dailyTime + 24;
+    }
+    previewTime = dailyTime;
   } else if (dateMode === "multi") {
     if (multiTimeMode === "sameDaily") {
       const dailyTime =
@@ -745,7 +772,7 @@ export default function EntriesPage() {
   // Calculate total additional charges
   const totalAdditionalCharges = additionalCharges.reduce(
     (sum, c) => sum + (c.amount || 0),
-    0
+    0,
   );
 
   // These are guaranteed to be non-null after setup is complete
@@ -1116,63 +1143,69 @@ export default function EntriesPage() {
                     {/* Time Section */}
                     {dateMode === "single" ? (
                       // Single day - simple time in/out
-                      timeFormat === "12hr" ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <TimeInput12Hour
-                            value={formData.timeIn}
-                            onChange={(val) =>
-                              setFormData({ ...formData, timeIn: val })
-                            }
-                            label="Time In"
-                          />
-                          <TimeInput12Hour
-                            value={formData.timeOut}
-                            onChange={(val) =>
-                              setFormData({ ...formData, timeOut: val })
-                            }
-                            label="Time Out"
-                          />
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-navy-700 mb-2">
-                              <Clock className="w-4 h-4 inline mr-2" />
-                              Time In <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="time"
+                      <>
+                        {timeFormat === "12hr" ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <TimeInput12Hour
                               value={formData.timeIn}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  timeIn: e.target.value,
-                                })
+                              onChange={(val) =>
+                                setFormData({ ...formData, timeIn: val })
                               }
-                              className="input-field font-mono"
-                              required
+                              label="Time In"
                             />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-navy-700 mb-2">
-                              <Clock className="w-4 h-4 inline mr-2" />
-                              Time Out <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="time"
+                            <TimeInput12Hour
                               value={formData.timeOut}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  timeOut: e.target.value,
-                                })
+                              onChange={(val) =>
+                                setFormData({ ...formData, timeOut: val })
                               }
-                              className="input-field font-mono"
-                              required
+                              label="Time Out"
                             />
                           </div>
-                        </div>
-                      )
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-navy-700 mb-2">
+                                <Clock className="w-4 h-4 inline mr-2" />
+                                Time In <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="time"
+                                value={formData.timeIn}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    timeIn: e.target.value,
+                                  })
+                                }
+                                className="input-field font-mono"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-navy-700 mb-2">
+                                <Clock className="w-4 h-4 inline mr-2" />
+                                Time Out <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="time"
+                                value={formData.timeOut}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    timeOut: e.target.value,
+                                  })
+                                }
+                                className="input-field font-mono"
+                                required
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-xs text-navy-500 -mt-2">
+                          💡 Time out can be past midnight (e.g., 11:00 PM to
+                          2:00 AM = 3 hours). Counts as 24 hours from time in.
+                        </p>
+                      </>
                     ) : (
                       // Multi-day - show time mode selector and appropriate inputs
                       <div className="space-y-4">
@@ -1226,7 +1259,8 @@ export default function EntriesPage() {
                         {multiTimeMode === "sameDaily" && (
                           <div className="p-4 bg-cream-50 rounded-xl space-y-3">
                             <p className="text-sm text-navy-600">
-                              Same schedule each day for {dayCount} days
+                              Same schedule each day for {dayCount} days (00:00
+                              to 23:59 per day)
                             </p>
                             {timeFormat === "12hr" ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1314,7 +1348,7 @@ export default function EntriesPage() {
                         {multiTimeMode === "perDay" && (
                           <div className="p-4 bg-cream-50 rounded-xl space-y-3">
                             <p className="text-sm text-navy-600">
-                              Enter time for each day
+                              Enter time for each day (00:00 to 23:59 per day)
                             </p>
                             <div className="space-y-3 max-h-75 overflow-y-auto">
                               {Array.from({ length: dayCount }).map((_, i) => {
@@ -1325,7 +1359,7 @@ export default function EntriesPage() {
                                   {
                                     day: "2-digit",
                                     month: "short",
-                                  }
+                                  },
                                 );
                                 const dayData = perDayTimes[i] || {
                                   timeIn: "08:00",
@@ -1334,7 +1368,7 @@ export default function EntriesPage() {
 
                                 const updateDayTime = (
                                   field: "timeIn" | "timeOut",
-                                  value: string
+                                  value: string,
                                 ) => {
                                   const updated = [...perDayTimes];
                                   if (!updated[i]) {
@@ -1392,7 +1426,7 @@ export default function EntriesPage() {
                                             onChange={(e) =>
                                               updateDayTime(
                                                 "timeIn",
-                                                e.target.value
+                                                e.target.value,
                                               )
                                             }
                                             className="input-field font-mono text-sm py-2"
@@ -1408,7 +1442,7 @@ export default function EntriesPage() {
                                             onChange={(e) =>
                                               updateDayTime(
                                                 "timeOut",
-                                                e.target.value
+                                                e.target.value,
                                               )
                                             }
                                             className="input-field font-mono text-sm py-2"
@@ -1444,6 +1478,65 @@ export default function EntriesPage() {
                         }
                         className="input-field font-mono"
                         placeholder="0.00"
+                      />
+                    </div>
+
+                    {/* Cancelled Booking Checkbox - Single Day Only */}
+                    {dateMode === "single" && (
+                      <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.cancelled}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                cancelled: e.target.checked,
+                                // Reset km values when cancelled
+                                startingKms: e.target.checked
+                                  ? "0"
+                                  : formData.startingKms,
+                                closingKms: e.target.checked
+                                  ? "0"
+                                  : formData.closingKms,
+                              })
+                            }
+                            className="w-5 h-5 mt-0.5 accent-amber-500"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Ban className="w-4 h-4 text-amber-600" />
+                              <span className="font-medium text-navy-800">
+                                Cancelled Booking
+                              </span>
+                            </div>
+                            <p className="text-sm text-navy-500 mt-1">
+                              Client booked but cancelled on the same day. Only
+                              day cost will be charged (KMs and hours will be
+                              0).
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Remark Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-navy-700 mb-2">
+                        <MessageSquare className="w-4 h-4 inline mr-2" />
+                        Remark (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.remark}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            remark: e.target.value,
+                          })
+                        }
+                        className="input-field"
+                        placeholder="Add any notes or remarks for this entry"
                       />
                     </div>
 
@@ -1484,7 +1577,7 @@ export default function EntriesPage() {
                                     updateAdditionalCharge(
                                       index,
                                       "label",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   placeholder="e.g., Driver Allowance"
@@ -1501,7 +1594,7 @@ export default function EntriesPage() {
                                     updateAdditionalCharge(
                                       index,
                                       "amount",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   placeholder="Amount"
@@ -1739,14 +1832,14 @@ export default function EntriesPage() {
                                   <input
                                     type="checkbox"
                                     checked={uploadedEntries.every(
-                                      (e) => e.selected
+                                      (e) => e.selected,
                                     )}
                                     onChange={(e) => {
                                       setUploadedEntries((prev) =>
                                         prev.map((entry) => ({
                                           ...entry,
                                           selected: e.target.checked,
-                                        }))
+                                        })),
                                       );
                                     }}
                                     className="accent-saffron-500"
@@ -1892,107 +1985,127 @@ export default function EntriesPage() {
                       entry.tollParking +
                       (entry.additionalCharges?.reduce(
                         (s, c) => s + c.amount,
-                        0
+                        0,
                       ) || 0);
                     const entryDays = getEntryDayCount(entry);
                     const isMultiDay = entryDays > 1;
                     return (
-                      <motion.tr
-                        key={entry.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                      >
-                        <td className="font-medium">
-                          {isMultiDay ? (
-                            <div>
-                              <span>{formatDate(entry.date)}</span>
-                              <span className="text-navy-400 mx-1">→</span>
-                              <span>{formatDate(entry.endDate!)}</span>
-                              <div className="text-xs text-saffron-600 font-medium">
+                      <React.Fragment key={entry.id}>
+                        <motion.tr
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                        >
+                          <td className="font-medium">
+                            {isMultiDay ? (
+                              <div>
+                                <span>{formatDate(entry.date)}</span>
+                                <span className="text-navy-400 mx-1">→</span>
+                                <span>{formatDate(entry.endDate!)}</span>
+                                <div className="text-xs text-saffron-600 font-medium">
+                                  {entryDays} days
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                {formatDate(entry.date)}
+                                {entry.cancelled && (
+                                  <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                    Cancelled
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-sm text-navy-600 max-w-37.5 truncate">
+                            {getClientName(entry.clientId)}
+                          </td>
+                          <td className="font-mono text-sm text-navy-600 max-w-25">
+                            {entry.dutyId}
+                          </td>
+                          <td className="max-w-37.5">
+                            <div className="font-mono">
+                              <span className="font-semibold">
+                                {entry.totalKms} km
+                              </span>
+                            </div>
+                            <div className="text-xs text-navy-400">
+                              {entry.startingKms} → {entry.closingKms}
+                            </div>
+                          </td>
+                          <td className="max-w-37.5">
+                            <div className="font-mono">
+                              <span className="font-semibold">
+                                {formatDuration(entry.totalTime)} hrs
+                              </span>
+                            </div>
+                            {isMultiDay ? (
+                              <div className="text-xs text-navy-400">
                                 {entryDays} days
                               </div>
+                            ) : (
+                              <div className="text-xs text-navy-400">
+                                {decimalToTime(entry.timeIn, timeFormat)} -{" "}
+                                {decimalToTime(entry.timeOut, timeFormat)}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {entry.extraKms > 0 ? (
+                              <span className="badge badge-saffron">
+                                +{entry.extraKms} km
+                              </span>
+                            ) : (
+                              <span className="font-mono text-navy-400">0</span>
+                            )}
+                          </td>
+                          <td>
+                            {entry.extraTime > 0 ? (
+                              <span className="badge badge-saffron">
+                                +{formatDuration(entry.extraTime)} hrs
+                              </span>
+                            ) : (
+                              <span className="font-mono text-navy-400">0</span>
+                            )}
+                          </td>
+                          <td className="font-mono text-sm">
+                            {totalCharges > 0
+                              ? formatCurrency(totalCharges)
+                              : "-"}
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleEdit(entry)}
+                                className="w-8 h-8 rounded-lg hover:bg-cream-100 flex items-center justify-center transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4 text-navy-500" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeleteTargetId(entry.id);
+                                  setShowDeleteConfirm(true);
+                                }}
+                                className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
                             </div>
-                          ) : (
-                            formatDate(entry.date)
-                          )}
-                        </td>
-                        <td className="text-sm text-navy-600 max-w-37.5 truncate">
-                          {getClientName(entry.clientId)}
-                        </td>
-                        <td className="font-mono text-sm text-navy-600 max-w-25">
-                          {entry.dutyId}
-                        </td>
-                        <td className="max-w-37.5">
-                          <div className="font-mono">
-                            <span className="font-semibold">
-                              {entry.totalKms} km
-                            </span>
-                          </div>
-                          <div className="text-xs text-navy-400">
-                            {entry.startingKms} → {entry.closingKms}
-                          </div>
-                        </td>
-                        <td className="max-w-37.5">
-                          <div className="font-mono">
-                            <span className="font-semibold">
-                              {formatDuration(entry.totalTime)} hrs
-                            </span>
-                          </div>
-                          {isMultiDay ? (
-                            <div className="text-xs text-navy-400">
-                              {entryDays} days
-                            </div>
-                          ) : (
-                            <div className="text-xs text-navy-400">
-                              {decimalToTime(entry.timeIn, timeFormat)} -{" "}
-                              {decimalToTime(entry.timeOut, timeFormat)}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          {entry.extraKms > 0 ? (
-                            <span className="badge badge-saffron">
-                              +{entry.extraKms} km
-                            </span>
-                          ) : (
-                            <span className="font-mono text-navy-400">0</span>
-                          )}
-                        </td>
-                        <td>
-                          {entry.extraTime > 0 ? (
-                            <span className="badge badge-saffron">
-                              +{formatDuration(entry.extraTime)} hrs
-                            </span>
-                          ) : (
-                            <span className="font-mono text-navy-400">0</span>
-                          )}
-                        </td>
-                        <td className="font-mono text-sm">
-                          {totalCharges > 0
-                            ? formatCurrency(totalCharges)
-                            : "-"}
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleEdit(entry)}
-                              className="w-8 h-8 rounded-lg hover:bg-cream-100 flex items-center justify-center transition-colors"
+                          </td>
+                        </motion.tr>
+                        {/* Remark row */}
+                        {entry.remark && (
+                          <tr className="bg-cream-50">
+                            <td
+                              colSpan={9}
+                              className="text-sm italic text-navy-600 py-1 px-4"
                             >
-                              <Edit3 className="w-4 h-4 text-navy-500" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteTargetId(entry.id);
-                                setShowDeleteConfirm(true);
-                              }}
-                              className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
-                          </div>
-                        </td>
-                      </motion.tr>
+                              <span className="font-semibold">REMARK:</span>{" "}
+                              {entry.remark}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -2037,9 +2150,16 @@ export default function EntriesPage() {
                               </div>
                             </div>
                           ) : (
-                            <span className="font-semibold text-navy-900">
-                              {formatDate(entry.date)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-navy-900">
+                                {formatDate(entry.date)}
+                              </span>
+                              {entry.cancelled && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                  Cancelled
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         <p className="text-sm text-navy-500 truncate max-w-50">
@@ -2156,6 +2276,16 @@ export default function EntriesPage() {
                           </div>
                         </div>
                       )}
+
+                    {/* Remark */}
+                    {entry.remark && (
+                      <div className="mt-3 pt-3 border-t border-cream-200">
+                        <p className="text-sm italic text-navy-600">
+                          <span className="font-semibold">REMARK:</span>{" "}
+                          {entry.remark}
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}

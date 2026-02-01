@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Document,
   Page,
@@ -27,6 +28,11 @@ Font.register({
     {
       src: "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf",
       fontWeight: 400,
+    },
+    {
+      src: "https://fonts.gstatic.com/s/roboto/v30/KFOkCnqEu92Fr1Mu51xIIzc.ttf",
+      fontWeight: 400,
+      fontStyle: "italic",
     },
     {
       src: "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlvAw.ttf",
@@ -378,80 +384,107 @@ export function InvoiceDocument({
                     0);
 
                 return (
-                  <View
-                    key={idx}
-                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
-                  >
+                  <React.Fragment key={idx}>
                     <View
-                      style={[
-                        styles.tableCell,
-                        styles.cellDate,
-                        { textAlign: "left" },
-                      ]}
+                      style={
+                        idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt
+                      }
                     >
-                      {isMultiDay ? (
-                        <>
-                          <Text
-                            style={{
-                              fontSize: 7,
-                              color: orange,
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {dayCount} days
-                          </Text>
+                      <View
+                        style={[
+                          styles.tableCell,
+                          styles.cellDate,
+                          { textAlign: "left" },
+                        ]}
+                      >
+                        {isMultiDay ? (
+                          <>
+                            <Text
+                              style={{
+                                fontSize: 7,
+                                color: orange,
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {dayCount} days
+                            </Text>
+                            <Text>{formatDate(entry.date)}</Text>
+                            <Text>to {formatDate(entry.endDate!)}</Text>
+                          </>
+                        ) : (
                           <Text>{formatDate(entry.date)}</Text>
-                          <Text>to {formatDate(entry.endDate!)}</Text>
-                        </>
-                      ) : (
-                        <Text>{formatDate(entry.date)}</Text>
-                      )}
+                        )}
+                      </View>
+                      <Text style={[styles.tableCell, styles.cellDutyId]}>
+                        {entry.dutyId}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.cellTimeIn]}>
+                        {decimalToTime(entry.timeIn, timeFormat)}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.cellTimeOut]}>
+                        {decimalToTime(entry.timeOut, timeFormat)}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.cellKms]}>
+                        {entry.totalKms}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.cellHrs]}>
+                        {formatDuration(entry.totalTime)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tableCell,
+                          styles.cellExtraKms,
+                          { color: entry.extraKms > 0 ? orange : navy },
+                        ]}
+                      >
+                        {entry.extraKms > 0 ? entry.extraKms : "-"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tableCell,
+                          styles.cellExtraHrs,
+                          { color: entry.extraTime > 0 ? orange : navy },
+                        ]}
+                      >
+                        {entry.extraTime > 0
+                          ? formatDuration(entry.extraTime)
+                          : "-"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tableCell,
+                          styles.cellToll,
+                          { borderRightWidth: 0 },
+                        ]}
+                      >
+                        {formatPDFCurrency(entryTotalCharges)}
+                      </Text>
                     </View>
-                    <Text style={[styles.tableCell, styles.cellDutyId]}>
-                      {entry.dutyId}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.cellTimeIn]}>
-                      {decimalToTime(entry.timeIn, timeFormat)}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.cellTimeOut]}>
-                      {decimalToTime(entry.timeOut, timeFormat)}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.cellKms]}>
-                      {entry.totalKms}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.cellHrs]}>
-                      {formatDuration(entry.totalTime)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        styles.cellExtraKms,
-                        { color: entry.extraKms > 0 ? orange : navy },
-                      ]}
-                    >
-                      {entry.extraKms > 0 ? entry.extraKms : "-"}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        styles.cellExtraHrs,
-                        { color: entry.extraTime > 0 ? orange : navy },
-                      ]}
-                    >
-                      {entry.extraTime > 0
-                        ? formatDuration(entry.extraTime)
-                        : "-"}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        styles.cellToll,
-                        { borderRightWidth: 0 },
-                      ]}
-                    >
-                      {formatPDFCurrency(entryTotalCharges)}
-                    </Text>
-                  </View>
+                    {/* Remark row - only shown if remark exists */}
+                    {entry.remark && (
+                      <View
+                        style={
+                          idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.tableCell,
+                            {
+                              width: "100%",
+                              textAlign: "left",
+                              fontStyle: "italic",
+                              fontSize: 8,
+                              color: navyLight,
+                              borderRightWidth: 0,
+                            },
+                          ]}
+                        >
+                          REMARK: {entry.remark}
+                        </Text>
+                      </View>
+                    )}
+                  </React.Fragment>
                 );
               })}
 
