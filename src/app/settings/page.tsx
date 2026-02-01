@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, type BackupConfig } from "@/store/useStore";
 import {
@@ -23,9 +23,19 @@ import {
   Key,
   CheckCircle,
   Loader2,
+  Image as ImageIcon,
+  FileSignature,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/types";
 import type { Vehicle, Client } from "@/lib/types";
+import {
+  getAsset,
+  saveAsset,
+  deleteAsset,
+  fileToBase64,
+  validateImageFile,
+  type AssetKey,
+} from "@/lib/assetStorage";
 import {
   authenticateWithGoogle,
   listBackups,
@@ -68,7 +78,7 @@ export default function SettingsPage() {
       businessContact: "",
       businessEmail: "",
       address: "",
-    }
+    },
   );
   const [profileForm, setProfileForm] = useState(
     userProfile || {
@@ -76,7 +86,7 @@ export default function SettingsPage() {
       firstName: "",
       lastName: "",
       timeFormat: "24hr" as const,
-    }
+    },
   );
 
   // Vehicle modal state
@@ -99,9 +109,24 @@ export default function SettingsPage() {
   const [showEncryptionKeyModal, setShowEncryptionKeyModal] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState("");
   const [backupAction, setBackupAction] = useState<"backup" | "restore" | null>(
-    null
+    null,
   );
   const [selectedBackupId, setSelectedBackupId] = useState<string | null>(null);
+
+  // Local backup state
+  const [localBackupSuccess, setLocalBackupSuccess] = useState<string | null>(
+    null,
+  );
+  const [localBackupError, setLocalBackupError] = useState<string | null>(null);
+
+  // Logo and Signature state
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [signatureBase64, setSignatureBase64] = useState<string | null>(null);
+  const [assetError, setAssetError] = useState<string | null>(null);
+  const [assetSuccess, setAssetSuccess] = useState<string | null>(null);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(true);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   // Client modal state
   const [showClientModal, setShowClientModal] = useState(false);
@@ -129,6 +154,103 @@ export default function SettingsPage() {
 
   const handleSaveProfile = () => {
     updateUserProfile(profileForm);
+  };
+
+  // Load assets from IndexedDB on mount
+  const loadAssets = useCallback(async () => {
+    setIsLoadingAssets(true);
+    try {
+      const [logo, signature] = await Promise.all([
+        getAsset("logo"),
+        getAsset("signature"),
+      ]);
+      setLogoBase64(logo);
+      setSignatureBase64(signature);
+    } catch {
+      console.error("Failed to load assets");
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
+
+  // Handle asset upload
+  const handleAssetUpload = async (
+    type: AssetKey,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setAssetError(validation.error || "Invalid file");
+      return;
+    }
+
+    try {
+      const base64 = await fileToBase64(file);
+      await saveAsset(type, base64);
+
+      if (type === "logo") {
+        setLogoBase64(base64);
+      } else {
+        setSignatureBase64(base64);
+      }
+
+      setAssetSuccess(
+        `${type === "logo" ? "Logo" : "Signature"} updated successfully`,
+      );
+      setTimeout(() => setAssetSuccess(null), 3000);
+    } catch {
+      setAssetError(`Failed to save ${type}`);
+    }
+
+    // Reset the input
+    event.target.value = "";
+  };
+
+  // Handle asset deletion
+  const handleAssetDelete = async (type: AssetKey) => {
+    try {
+      await deleteAsset(type);
+      if (type === "logo") {
+        setLogoBase64(null);
+      } else {
+        setSignatureBase64(null);
+      }
+      setAssetSuccess(
+        `${type === "logo" ? "Logo" : "Signature"} removed. Default will be used.`,
+      );
+      setTimeout(() => setAssetSuccess(null), 3000);
+    } catch {
+      setAssetError(`Failed to delete ${type}`);
+    }
+  };
+
+  // Handle local data download
+  const handleDownloadData = () => {
+    try {
+      const data = getBackupData();
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trippr-backup-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setLocalBackupSuccess("Data downloaded successfully!");
+      setTimeout(() => setLocalBackupSuccess(null), 3000);
+    } catch {
+      setLocalBackupError("Failed to download data");
+      setTimeout(() => setLocalBackupError(null), 3000);
+    }
   };
 
   // Vehicle handlers
@@ -215,7 +337,7 @@ export default function SettingsPage() {
       setBackupList(backups);
     } catch (error) {
       setBackupError(
-        error instanceof Error ? error.message : "Failed to load backups"
+        error instanceof Error ? error.message : "Failed to load backups",
       );
     } finally {
       setIsLoadingBackups(false);
@@ -242,7 +364,7 @@ export default function SettingsPage() {
       setTimeout(() => setBackupSuccess(null), 3000);
     } catch (error) {
       setBackupError(
-        error instanceof Error ? error.message : "Failed to connect"
+        error instanceof Error ? error.message : "Failed to connect",
       );
     }
   };
@@ -285,7 +407,7 @@ export default function SettingsPage() {
         setTimeout(() => setBackupSuccess(null), 3000);
       } catch (error) {
         setBackupError(
-          error instanceof Error ? error.message : "Backup failed"
+          error instanceof Error ? error.message : "Backup failed",
         );
       } finally {
         setIsBackingUp(false);
@@ -296,7 +418,7 @@ export default function SettingsPage() {
         const data = await downloadBackup(
           googleAuth.accessToken,
           selectedBackupId,
-          encryptionKey
+          encryptionKey,
         );
         // Validate the data structure before restoring
         if (data && typeof data === "object" && "companyInfo" in data) {
@@ -308,7 +430,7 @@ export default function SettingsPage() {
         }
       } catch (error) {
         setBackupError(
-          error instanceof Error ? error.message : "Restore failed"
+          error instanceof Error ? error.message : "Restore failed",
         );
       } finally {
         setIsRestoring(false);
@@ -329,7 +451,7 @@ export default function SettingsPage() {
       setTimeout(() => setBackupSuccess(null), 3000);
     } catch (error) {
       setBackupError(
-        error instanceof Error ? error.message : "Failed to delete backup"
+        error instanceof Error ? error.message : "Failed to delete backup",
       );
     }
   };
@@ -357,9 +479,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Company Information */}
-        <div className="card p-4 lg:p-6">
+        <div className="card p-4 lg:p-6 h-fit">
           <h2 className="font-display text-lg lg:text-xl font-semibold text-navy-900 mb-4 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-saffron-500" />
             Company Information
@@ -425,7 +547,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setCompanyForm({ ...companyForm, address: e.target.value })
                 }
-                rows={9}
+                rows={12}
                 className="input-field"
               />
             </div>
@@ -439,7 +561,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Personal Information & Preferences */}
+        {/* Personal Information, Preferences & Backups */}
         <div className="flex flex-col gap-6">
           {/* Personal Information */}
           <div className="card p-4 lg:p-6">
@@ -482,22 +604,6 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
-              <button
-                onClick={handleSaveProfile}
-                className="btn-primary w-full"
-              >
-                <Save className="w-4 h-4" />
-                Save Personal Info
-              </button>
-            </div>
-          </div>
-
-          {/* Preferences */}
-          <div className="card p-4 lg:p-6">
-            <h2 className="font-display text-lg font-semibold text-navy-900 mb-4">
-              Preferences
-            </h2>
-            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-navy-700 mb-2">
                   Time Format
@@ -537,6 +643,52 @@ export default function SettingsPage() {
                 Save Preferences
               </button>
             </div>
+          </div>
+
+          {/* Local Backup Section */}
+          <div className="card p-4 lg:p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="font-display text-lg font-semibold text-navy-900 flex items-center gap-2">
+                <Download className="w-5 h-5 text-saffron-500" />
+                Local Backup
+              </h2>
+            </div>
+            <p className="text-sm text-navy-600 mb-4">
+              Download a complete backup of all your data as a JSON file. You
+              can use this file to restore your data during setup on a new
+              device.
+            </p>
+
+            {/* Success/Error Messages */}
+            <AnimatePresence>
+              {localBackupSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {localBackupSuccess}
+                </motion.div>
+              )}
+              {localBackupError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {localBackupError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button onClick={handleDownloadData} className="btn-primary w-full">
+              <Download className="w-4 h-4" />
+              Download All Data
+            </button>
           </div>
 
           {/* Cloud Backup Section */}
@@ -716,6 +868,181 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Logo & Signature Management */}
+      <div className="card p-4 lg:p-6">
+        <h2 className="font-display text-lg lg:text-xl font-semibold text-navy-900 mb-4 flex items-center gap-2">
+          <ImageIcon className="w-5 h-5 text-saffron-500" />
+          Logo & Signature
+        </h2>
+        <p className="text-sm text-navy-500 mb-4">
+          Upload your company logo and signature for invoices. If not provided,
+          defaults from settings will be used.
+        </p>
+
+        {/* Success/Error Messages */}
+        <AnimatePresence>
+          {assetSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm flex items-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              {assetSuccess}
+            </motion.div>
+          )}
+          {assetError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2"
+            >
+              <AlertCircle className="w-4 h-4" />
+              {assetError}
+              <button onClick={() => setAssetError(null)} className="ml-auto">
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isLoadingAssets ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-saffron-500" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Company Logo */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-navy-700">
+                Company Logo
+              </label>
+              <div className="border-2 border-dashed border-cream-300 rounded-xl p-4 text-center">
+                {logoBase64 ? (
+                  <div className="space-y-3">
+                    <img
+                      src={logoBase64}
+                      alt="Company Logo"
+                      className="max-h-24 mx-auto object-contain"
+                    />
+                    <p className="text-xs text-navy-500">
+                      Custom logo uploaded
+                    </p>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => logoInputRef.current?.click()}
+                        className="btn-secondary text-sm py-1.5 px-3"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Change
+                      </button>
+                      <button
+                        onClick={() => handleAssetDelete("logo")}
+                        className="text-sm py-1.5 px-3 rounded-lg text-red-600 hover:bg-red-50 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-4">
+                    <ImageIcon className="w-10 h-10 mx-auto text-cream-400" />
+                    <p className="text-sm text-navy-500">
+                      {process.env.NEXT_PUBLIC_LOGO_BASE64
+                        ? "Using default logo"
+                        : "No logo configured"}
+                    </p>
+                    <button
+                      onClick={() => logoInputRef.current?.click()}
+                      className="btn-primary text-sm py-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Logo
+                    </button>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(e) => handleAssetUpload("logo", e)}
+                className="hidden"
+              />
+              <p className="text-xs text-navy-400">
+                PNG, JPG, or JPEG (max 2MB). PNG recommended for best quality.
+              </p>
+            </div>
+
+            {/* Signature */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-navy-700">
+                Signature
+              </label>
+              <div className="border-2 border-dashed border-cream-300 rounded-xl p-4 text-center">
+                {signatureBase64 ? (
+                  <div className="space-y-3">
+                    <img
+                      src={signatureBase64}
+                      alt="Signature"
+                      className="max-h-24 mx-auto object-contain"
+                    />
+                    <p className="text-xs text-navy-500">
+                      Custom signature uploaded
+                    </p>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => signatureInputRef.current?.click()}
+                        className="btn-secondary text-sm py-1.5 px-3"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Change
+                      </button>
+                      <button
+                        onClick={() => handleAssetDelete("signature")}
+                        className="text-sm py-1.5 px-3 rounded-lg text-red-600 hover:bg-red-50 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 py-4">
+                    <FileSignature className="w-10 h-10 mx-auto text-cream-400" />
+                    <p className="text-sm text-navy-500">
+                      {process.env.NEXT_PUBLIC_SIGNATURE_BASE64
+                        ? "Using default signature"
+                        : "No signature configured"}
+                    </p>
+                    <button
+                      onClick={() => signatureInputRef.current?.click()}
+                      className="btn-primary text-sm py-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Signature
+                    </button>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={signatureInputRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(e) => handleAssetUpload("signature", e)}
+                className="hidden"
+              />
+              <p className="text-xs text-navy-400">
+                PNG, JPG, or JPEG (max 2MB). PNG recommended for best quality.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Vehicle Management */}

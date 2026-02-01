@@ -25,6 +25,7 @@ export interface BackupConfig {
 interface AppState {
   // Setup State
   isSetupComplete: boolean;
+  isBrandingComplete: boolean;
   backupConfig: BackupConfig | null;
 
   // Data (can be null before setup)
@@ -56,12 +57,14 @@ interface AppState {
     entries: DutyEntry[];
     invoices: Invoice[];
     backupConfig?: BackupConfig;
+    isBrandingComplete?: boolean;
   }) => void;
 
   // Actions - Backup
   setBackupConfig: (config: BackupConfig | null) => void;
   updateLastBackupTime: () => void;
   getBackupData: () => object;
+  markBrandingComplete: () => void;
 
   // Actions - Company Info
   updateCompanyInfo: (info: Partial<CompanyInfo>) => void;
@@ -125,6 +128,7 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       // Initial State - Empty until setup is complete
       isSetupComplete: false,
+      isBrandingComplete: false,
       backupConfig: null,
       companyInfo: null,
       userProfile: null,
@@ -140,6 +144,7 @@ export const useStore = create<AppState>()(
       completeSetup: (data) => {
         set({
           isSetupComplete: true,
+          isBrandingComplete: true,
           companyInfo: data.companyInfo,
           userProfile: data.userProfile,
           vehicles: [data.vehicle],
@@ -152,6 +157,7 @@ export const useStore = create<AppState>()(
       restoreFromBackup: (data) => {
         set({
           isSetupComplete: true,
+          isBrandingComplete: data.isBrandingComplete ?? false,
           companyInfo: data.companyInfo,
           userProfile: data.userProfile,
           vehicles: data.vehicles,
@@ -186,8 +192,13 @@ export const useStore = create<AppState>()(
           entries: state.entries,
           invoices: state.invoices,
           backupConfig: state.backupConfig,
+          isBrandingComplete: state.isBrandingComplete,
           exportedAt: new Date().toISOString(),
         };
+      },
+
+      markBrandingComplete: () => {
+        set({ isBrandingComplete: true });
       },
 
       // Company Info Actions

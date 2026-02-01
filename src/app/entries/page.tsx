@@ -205,6 +205,15 @@ export default function EntriesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>("");
 
+  // Duplicate check modal state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateEntry, setDuplicateEntry] = useState<
+    (typeof entries)[0] | null
+  >(null);
+  const [pendingEntryData, setPendingEntryData] = useState<
+    Parameters<typeof addEntry>[0] | null
+  >(null);
+
   // For multi-day "totalHours" mode
   const [manualTotalHours, setManualTotalHours] = useState<string>("");
 
@@ -380,6 +389,42 @@ export default function EntriesPage() {
     return errors.length === 0;
   };
 
+  // Check if dutyId already exists (excluding the entry being edited)
+  const findExistingEntryByDutyId = (
+    dutyId: string,
+  ): (typeof entries)[0] | null => {
+    if (!dutyId.trim()) return null;
+    return (
+      entries.find((e) => e.dutyId === dutyId && e.id !== editingId) || null
+    );
+  };
+
+  // Handle overwrite - delete existing and add new
+  const handleOverwrite = () => {
+    if (duplicateEntry && pendingEntryData) {
+      deleteEntry(duplicateEntry.id);
+      addEntry(pendingEntryData);
+      resetForm();
+      setFormErrors([]);
+      setShowForm(false);
+      setEntryMode("select");
+    }
+    setShowDuplicateModal(false);
+    setDuplicateEntry(null);
+    setPendingEntryData(null);
+  };
+
+  // Handle edit existing - load the existing entry for editing
+  const handleEditExisting = () => {
+    if (duplicateEntry) {
+      handleEdit(duplicateEntry);
+      setShowForm(true);
+    }
+    setShowDuplicateModal(false);
+    setDuplicateEntry(null);
+    setPendingEntryData(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -392,58 +437,28 @@ export default function EntriesPage() {
       (c) => c.label.trim() && c.amount >= 0,
     );
 
-    if (editingId) {
-      // Update existing entry
-      let overrideTotalTime: number | undefined;
+    // Build entry data based on mode
+    let entryData: Parameters<typeof addEntry>[0];
 
-      // Calculate overrideTotalTime for multi-day entries
-      if (dateMode === "multi") {
-        if (multiTimeMode === "totalHours") {
-          overrideTotalTime = parseFloat(manualTotalHours);
-        } else if (multiTimeMode === "perDay") {
-          overrideTotalTime = perDayTimes.reduce((sum, day) => {
-            const dayTime =
-              timeToDecimal(day.timeOut) - timeToDecimal(day.timeIn);
-            return sum + dayTime;
-          }, 0);
-        }
-        // sameDaily mode: overrideTotalTime stays undefined
-      }
-
-      const entryData = {
-        clientId: formData.clientId,
-        date: formData.date,
-        endDate: dateMode === "multi" ? formData.endDate : undefined,
-        dutyId: formData.dutyId || generateDutyId(),
-        startingKms: formData.cancelled ? 0 : parseInt(formData.startingKms),
-        closingKms: formData.cancelled ? 0 : parseInt(formData.closingKms),
-        timeIn: timeToDecimal(formData.timeIn),
-        timeOut: timeToDecimal(formData.timeOut),
-        tollParking: parseFloat(formData.tollParking) || 0,
-        additionalCharges: validCharges.length > 0 ? validCharges : undefined,
-        remark: formData.remark.trim() || undefined,
-        cancelled: dateMode === "single" ? formData.cancelled : undefined,
-        overrideTotalTime,
-      };
-      updateEntry(editingId, entryData);
-    } else if (dateMode === "multi") {
-      // Multi-day mode: save as single entry with endDate
+    if (dateMode === "multi") {
       let overrideTotalTime: number | undefined;
+      let savedPerDayTimes: { timeIn: number; timeOut: number }[] | undefined;
 
       if (multiTimeMode === "totalHours") {
-        // User entered total hours manually
         overrideTotalTime = parseFloat(manualTotalHours);
       } else if (multiTimeMode === "perDay") {
-        // Calculate total from per-day times
         overrideTotalTime = perDayTimes.reduce((sum, day) => {
           const dayTime =
             timeToDecimal(day.timeOut) - timeToDecimal(day.timeIn);
           return sum + dayTime;
         }, 0);
+        // Save per-day times as decimal values
+        savedPerDayTimes = perDayTimes.map((day) => ({
+          timeIn: timeToDecimal(day.timeIn),
+          timeOut: timeToDecimal(day.timeOut),
+        }));
       }
-      // For "sameDaily" mode, overrideTotalTime stays undefined and calculation uses timeIn/timeOut × dayCount
-
-      const entryData = {
+      entryData = {
         clientId: formData.clientId,
         date: formData.date,
         endDate: formData.endDate,
@@ -456,24 +471,77 @@ export default function EntriesPage() {
         additionalCharges: validCharges.length > 0 ? validCharges : undefined,
         remark: formData.remark.trim() || undefined,
         overrideTotalTime,
+        multiTimeMode,
+        perDayTimes: savedPerDayTimes,
       };
-      addEntry(entryData);
     } else {
-      // Single day entry
-      const entryData = {
+      entryData = {
         clientId: formData.clientId,
         date: formData.date,
         dutyId: formData.dutyId || generateDutyId(),
         startingKms: formData.cancelled ? 0 : parseInt(formData.startingKms),
         closingKms: formData.cancelled ? 0 : parseInt(formData.closingKms),
-        timeIn: timeToDecimal(formData.timeIn),
-        timeOut: timeToDecimal(formData.timeOut),
+        timeIn: formData.cancelled ? 0 : timeToDecimal(formData.timeIn),
+        timeOut: formData.cancelled ? 0 : timeToDecimal(formData.timeOut),
         tollParking: parseFloat(formData.tollParking) || 0,
         additionalCharges: validCharges.length > 0 ? validCharges : undefined,
         remark: formData.remark.trim() || undefined,
         cancelled: formData.cancelled || undefined,
       };
+    }
+
+    // Check for duplicate dutyId (only when creating new, not editing)
+    if (!editingId) {
+      const existingEntry = findExistingEntryByDutyId(entryData.dutyId);
+      if (existingEntry) {
+        setDuplicateEntry(existingEntry);
+        setPendingEntryData(entryData);
+        setShowDuplicateModal(true);
+        return;
+      }
       addEntry(entryData);
+    } else {
+      // Update existing entry
+      let overrideTotalTime: number | undefined;
+      let savedPerDayTimes: { timeIn: number; timeOut: number }[] | undefined;
+      let savedMultiTimeMode: "sameDaily" | "totalHours" | "perDay" | undefined;
+
+      if (dateMode === "multi") {
+        savedMultiTimeMode = multiTimeMode;
+        if (multiTimeMode === "totalHours") {
+          overrideTotalTime = parseFloat(manualTotalHours);
+        } else if (multiTimeMode === "perDay") {
+          overrideTotalTime = perDayTimes.reduce((sum, day) => {
+            const dayTime =
+              timeToDecimal(day.timeOut) - timeToDecimal(day.timeIn);
+            return sum + dayTime;
+          }, 0);
+          // Save per-day times as decimal values
+          savedPerDayTimes = perDayTimes.map((day) => ({
+            timeIn: timeToDecimal(day.timeIn),
+            timeOut: timeToDecimal(day.timeOut),
+          }));
+        }
+      }
+
+      const updateData = {
+        clientId: formData.clientId,
+        date: formData.date,
+        endDate: dateMode === "multi" ? formData.endDate : undefined,
+        dutyId: formData.dutyId || generateDutyId(),
+        startingKms: formData.cancelled ? 0 : parseInt(formData.startingKms),
+        closingKms: formData.cancelled ? 0 : parseInt(formData.closingKms),
+        timeIn: formData.cancelled ? 0 : timeToDecimal(formData.timeIn),
+        timeOut: formData.cancelled ? 0 : timeToDecimal(formData.timeOut),
+        tollParking: parseFloat(formData.tollParking) || 0,
+        additionalCharges: validCharges.length > 0 ? validCharges : undefined,
+        remark: formData.remark.trim() || undefined,
+        cancelled: dateMode === "single" ? formData.cancelled : undefined,
+        overrideTotalTime,
+        multiTimeMode: savedMultiTimeMode,
+        perDayTimes: savedPerDayTimes,
+      };
+      updateEntry(editingId, updateData);
     }
 
     resetForm();
@@ -500,23 +568,39 @@ export default function EntriesPage() {
     setAdditionalCharges(entry.additionalCharges || []);
     setDateMode(isMultiDay ? "multi" : "single");
 
-    // For multi-day entries, pre-populate the totalHours field with stored value
-    // Default to "sameDaily" mode, but user can switch to "totalHours" if needed
+    // For multi-day entries, restore the saved time mode and per-day times
     if (isMultiDay) {
-      setMultiTimeMode("sameDaily");
-      // Pre-fill manualTotalHours with the stored totalTime for easy switching
+      // Restore the saved multiTimeMode, or default to sameDaily
+      const savedMode = entry.multiTimeMode || "sameDaily";
+      setMultiTimeMode(savedMode);
+
+      // Pre-fill manualTotalHours with the stored totalTime
       setManualTotalHours(entry.totalTime.toString());
-      // Initialize perDayTimes based on day count
-      const start = new Date(entry.date);
-      const end = new Date(entry.endDate!);
-      const diffTime = end.getTime() - start.getTime();
-      const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-      setPerDayTimes(
-        Array.from({ length: days }, () => ({
-          timeIn: decimalToTime(entry.timeIn, "24hr"),
-          timeOut: decimalToTime(entry.timeOut, "24hr"),
-        })),
-      );
+
+      // Restore perDayTimes if saved, otherwise initialize from entry times
+      if (entry.perDayTimes && entry.perDayTimes.length > 0) {
+        setPerDayTimes(
+          entry.perDayTimes.map((day) => ({
+            timeIn: decimalToTime(day.timeIn, "24hr"),
+            timeOut: decimalToTime(day.timeOut, "24hr"),
+          })),
+        );
+      } else {
+        // Initialize perDayTimes based on day count with stored entry times
+        const start = new Date(entry.date);
+        const end = new Date(entry.endDate!);
+        const diffTime = end.getTime() - start.getTime();
+        const days = Math.max(
+          1,
+          Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1,
+        );
+        setPerDayTimes(
+          Array.from({ length: days }, () => ({
+            timeIn: decimalToTime(entry.timeIn, "24hr"),
+            timeOut: decimalToTime(entry.timeOut, "24hr"),
+          })),
+        );
+      }
     } else {
       setMultiTimeMode("sameDaily");
       setManualTotalHours("");
@@ -1492,13 +1576,19 @@ export default function EntriesPage() {
                               setFormData({
                                 ...formData,
                                 cancelled: e.target.checked,
-                                // Reset km values when cancelled
+                                // Reset km and time values when cancelled
                                 startingKms: e.target.checked
                                   ? "0"
                                   : formData.startingKms,
                                 closingKms: e.target.checked
                                   ? "0"
                                   : formData.closingKms,
+                                timeIn: e.target.checked
+                                  ? "00:00"
+                                  : formData.timeIn,
+                                timeOut: e.target.checked
+                                  ? "00:00"
+                                  : formData.timeOut,
                               })
                             }
                             className="w-5 h-5 mt-0.5 accent-amber-500"
@@ -2346,6 +2436,85 @@ export default function EntriesPage() {
                 >
                   <Trash2 className="w-4 h-4" />
                   Confirm Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Duplicate Duty ID Modal */}
+      <AnimatePresence>
+        {showDuplicateModal && duplicateEntry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => {
+              setShowDuplicateModal(false);
+              setDuplicateEntry(null);
+              setPendingEntryData(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-6 h-6 text-amber-500" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
+                  Duty ID Already Exists
+                </h3>
+                <p className="text-navy-600 mb-4">
+                  An entry with Duty ID{" "}
+                  <span className="font-mono font-semibold text-saffron-600">
+                    {duplicateEntry.dutyId}
+                  </span>{" "}
+                  already exists.
+                </p>
+                <div className="bg-cream-50 rounded-lg p-3 text-left text-sm">
+                  <p className="text-navy-500">Existing Entry:</p>
+                  <p className="font-medium text-navy-800">
+                    {formatDate(duplicateEntry.date)} -{" "}
+                    {clients.find((c) => c.id === duplicateEntry.clientId)
+                      ?.name || "Unknown Client"}
+                  </p>
+                  <p className="text-navy-600">
+                    {duplicateEntry.totalKms} KMs |{" "}
+                    {formatDuration(duplicateEntry.totalTime)}
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 border-t border-cream-200 flex flex-col gap-3">
+                <button
+                  onClick={handleEditExisting}
+                  className="btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Existing Entry
+                </button>
+                <button
+                  onClick={handleOverwrite}
+                  className="w-full py-2.5 px-6 rounded-xl font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Overwrite with New Data
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateEntry(null);
+                    setPendingEntryData(null);
+                  }}
+                  className="text-navy-500 hover:text-navy-700 text-sm"
+                >
+                  Cancel
                 </button>
               </div>
             </motion.div>

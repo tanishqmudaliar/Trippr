@@ -55,6 +55,9 @@ export interface DutyEntry {
   additionalCharges?: AdditionalCharge[];
   remark?: string; // Optional remark for the entry
   cancelled?: boolean; // For single day - client booked but cancelled (only charges day cost)
+  // Multi-day time tracking
+  multiTimeMode?: "sameDaily" | "totalHours" | "perDay"; // How time was entered for multi-day
+  perDayTimes?: { timeIn: number; timeOut: number }[]; // Individual day times for perDay mode
   // Calculated fields
   totalKms: number;
   totalTime: number;
@@ -209,9 +212,11 @@ export function calculateInvoiceTotals(
   | "vehicleNumberForInvoice"
   | "entryIds"
   | "createdAt"
-> {
+> & { totalKms: number; totalTime: number } {
   // Count total days including multi-day entries
   const totalDays = entries.reduce((sum, e) => sum + getEntryDayCount(e), 0);
+  const totalKms = entries.reduce((sum, e) => sum + e.totalKms, 0);
+  const totalTime = entries.reduce((sum, e) => sum + e.totalTime, 0);
   const totalExtraKms = entries.reduce((sum, e) => sum + e.extraKms, 0);
   const totalExtraHours = entries.reduce((sum, e) => sum + e.extraTime, 0);
   const totalTollParking = entries.reduce((sum, e) => sum + e.tollParking, 0);
@@ -240,6 +245,8 @@ export function calculateInvoiceTotals(
 
   return {
     totalDays,
+    totalKms,
+    totalTime,
     totalExtraKms,
     totalExtraHours,
     totalTollParking,

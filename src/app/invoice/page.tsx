@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
 import {
@@ -21,6 +21,7 @@ import {
   Edit3,
   Trash2,
   Save,
+  Ban,
 } from "lucide-react";
 import {
   formatDate,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/types";
 import type { DutyEntry, Client, CompanyInfo } from "@/lib/types";
 import { InvoicePDFDownload } from "@/components/InvoicePDF";
+import { getAssetWithFallback } from "@/lib/assetStorage";
 
 type TabType = "create" | "edit";
 
@@ -134,6 +136,8 @@ function CreateInvoiceTab() {
     userProfile,
     getDefaultVehicle,
     createInvoice,
+    invoices,
+    deleteInvoice,
   } = useStore();
 
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
@@ -142,11 +146,37 @@ function CreateInvoiceTab() {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Duplicate invoice modal state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateInvoice, setDuplicateInvoice] = useState<
+    (typeof invoices)[0] | null
+  >(null);
+  const [pendingDownload, setPendingDownload] = useState(false);
+  const [isOverwriteDownload, setIsOverwriteDownload] = useState(false);
+
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().split("T")[0],
   );
   const [vehicleNumber, setVehicleNumber] = useState("");
+
+  // Assets for PDF
+  const [logoBase64, setLogoBase64] = useState<string>("");
+  const [signatureBase64, setSignatureBase64] = useState<string>("");
+
+  // Load assets on mount
+  const loadAssets = useCallback(async () => {
+    const [logo, signature] = await Promise.all([
+      getAssetWithFallback("logo"),
+      getAssetWithFallback("signature"),
+    ]);
+    setLogoBase64(logo);
+    setSignatureBase64(signature);
+  }, []);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
 
   useEffect(() => {
     if (clients.length === 1 && !selectedClientId) {
@@ -227,12 +257,82 @@ function CreateInvoiceTab() {
     setShowPreview(true);
   };
 
+  // Check if invoice number already exists
+  const findExistingInvoice = (invNumber: string) => {
+    if (!invNumber.trim()) return null;
+    return invoices.find((inv) => inv.invoiceNumber === invNumber) || null;
+  };
+
+  // Handle overwrite - delete existing and create new, then trigger download
+  const handleOverwrite = () => {
+    if (duplicateInvoice) {
+      deleteInvoice(duplicateInvoice.id);
+      createInvoice(
+        invoiceNumber,
+        invoiceDate,
+        selectedClientId,
+        vehicleNumber,
+        selectedEntries,
+      );
+    }
+    setShowDuplicateModal(false);
+    setDuplicateInvoice(null);
+    // Mark this as an overwrite download so handleAfterDownload doesn't create another invoice
+    setIsOverwriteDownload(true);
+    // Trigger download after a small delay to allow state update
+    setPendingDownload(true);
+  };
+
+  // Check before download - returns false if download should be blocked
+  const handleBeforeDownload = (): boolean => {
+    const error = validateInvoice();
+    if (error) {
+      setValidationError(error);
+      return false;
+    }
+
+    // Check for duplicate invoice number
+    const existingInvoice = findExistingInvoice(invoiceNumber);
+    if (existingInvoice) {
+      setDuplicateInvoice(existingInvoice);
+      setShowDuplicateModal(true);
+      return false; // Block download, show modal instead
+    }
+
+    return true; // Allow download
+  };
+
+  // Called after successful PDF download
+  const handleAfterDownload = () => {
+    // Skip if this was an overwrite download (invoice already created in handleOverwrite)
+    if (isOverwriteDownload) {
+      setIsOverwriteDownload(false);
+      return;
+    }
+    createInvoice(
+      invoiceNumber,
+      invoiceDate,
+      selectedClientId,
+      vehicleNumber,
+      selectedEntries,
+    );
+  };
+
   const handleSaveInvoice = () => {
     const error = validateInvoice();
     if (error) {
       setValidationError(error);
       return;
     }
+
+    // Check for duplicate invoice number
+    const existingInvoice = findExistingInvoice(invoiceNumber);
+    if (existingInvoice) {
+      setDuplicateInvoice(existingInvoice);
+      setShowDuplicateModal(true);
+      return;
+    }
+
     createInvoice(
       invoiceNumber,
       invoiceDate,
@@ -276,8 +376,13 @@ function CreateInvoiceTab() {
               entries={selectedEntriesData}
               totals={totals}
               timeFormat={timeFormat}
-              onDownload={handleSaveInvoice}
+              onBeforeDownload={handleBeforeDownload}
+              onDownload={handleAfterDownload}
+              triggerDownload={pendingDownload}
+              onTriggerDownloadComplete={() => setPendingDownload(false)}
               fullWidthMobile
+              logoBase64={logoBase64}
+              signatureBase64={signatureBase64}
             />
           )}
         </div>
@@ -359,6 +464,76 @@ function CreateInvoiceTab() {
         timeFormat={timeFormat}
         onSave={handleSaveInvoice}
       />
+
+      {/* Duplicate Invoice Number Modal */}
+      <AnimatePresence>
+        {showDuplicateModal && duplicateInvoice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => {
+              setShowDuplicateModal(false);
+              setDuplicateInvoice(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-6 h-6 text-amber-500" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
+                  Invoice Number Already Exists
+                </h3>
+                <p className="text-navy-600 mb-4">
+                  An invoice with number{" "}
+                  <span className="font-mono font-semibold text-saffron-600">
+                    {duplicateInvoice.invoiceNumber}
+                  </span>{" "}
+                  already exists.
+                </p>
+                <div className="bg-cream-50 rounded-lg p-3 text-left text-sm">
+                  <p className="text-navy-500">Existing Invoice:</p>
+                  <p className="font-medium text-navy-800">
+                    {formatDate(duplicateInvoice.invoiceDate)} -{" "}
+                    {clients.find((c) => c.id === duplicateInvoice.clientId)
+                      ?.name || "Unknown Client"}
+                  </p>
+                  <p className="text-navy-600">
+                    {duplicateInvoice.entryIds.length} entries |{" "}
+                    {formatCurrency(duplicateInvoice.roundedTotal)}
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 border-t border-cream-200 flex flex-col gap-3">
+                <button
+                  onClick={handleOverwrite}
+                  className="w-full py-2.5 px-6 rounded-xl font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Overwrite Existing Invoice
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateInvoice(null);
+                  }}
+                  className="btn-secondary w-full"
+                >
+                  Cancel - Edit Invoice Number
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -386,6 +561,24 @@ function EditInvoiceTab() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>("");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
+
+  // Assets for PDF
+  const [logoBase64, setLogoBase64] = useState<string>("");
+  const [signatureBase64, setSignatureBase64] = useState<string>("");
+
+  // Load assets on mount
+  const loadAssets = useCallback(async () => {
+    const [logo, signature] = await Promise.all([
+      getAssetWithFallback("logo"),
+      getAssetWithFallback("signature"),
+    ]);
+    setLogoBase64(logo);
+    setSignatureBase64(signature);
+  }, []);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
 
   const selectedInvoice = useMemo(() => {
     return invoices.find((i) => i.id === selectedInvoiceId);
@@ -557,6 +750,8 @@ function EditInvoiceTab() {
                           totals={invoiceTotals}
                           timeFormat={timeFormat}
                           iconOnly
+                          logoBase64={logoBase64}
+                          signatureBase64={signatureBase64}
                         />
                       )}
                       <button
@@ -1027,6 +1222,7 @@ function EntrySelectionCard({
               const entryDays = getEntryDayCount(entry);
               const isMultiDay = entryDays > 1;
               const isSelected = selectedEntries.includes(entry.id);
+              const isCancelled = entry.cancelled === true;
               const totalCharges =
                 entry.tollParking +
                 (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
@@ -1039,75 +1235,97 @@ function EntrySelectionCard({
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.02 }}
                   onClick={() => toggleEntry(entry.id)}
-                  className={`flex items-center gap-4 p-4 border-b border-cream-100 cursor-pointer transition-all overflow-hidden ${
+                  className={`p-4 border-b border-cream-100 cursor-pointer transition-all overflow-hidden ${
                     isSelected
                       ? "bg-saffron-50 hover:bg-saffron-100"
                       : "hover:bg-cream-50"
                   }`}
                 >
-                  <div className="shrink-0">
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-saffron-500" />
-                    ) : (
-                      <Square className="w-5 h-5 text-navy-300" />
-                    )}
-                  </div>
-                  <div className="shrink-0 w-40">
-                    <div className="font-medium text-navy-900">
-                      {isMultiDay ? (
-                        <>
-                          <div className="text-xs text-saffron-600 font-medium mb-0.5">
-                            {entryDays} days
-                          </div>
-                          <div className="text-sm">
-                            {formatDate(entry.date)}
-                            <span className="text-navy-400 mx-1">→</span>
-                            {formatDate(entry.endDate!)}
-                          </div>
-                        </>
+                  {/* Row 1: Checkbox, Date, Duty ID, Cancelled badge */}
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="shrink-0">
+                      {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-saffron-500" />
                       ) : (
-                        formatDate(entry.date)
+                        <Square className="w-5 h-5 text-navy-300" />
                       )}
                     </div>
-                    <div className="text-xs text-navy-500 font-mono mt-0.5 truncate">
-                      #{entry.dutyId}
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="font-medium text-navy-900">
+                        {isMultiDay ? (
+                          <>
+                            <span className="text-xs text-saffron-600 font-medium mr-2">
+                              {entryDays} days
+                            </span>
+                            <span className="text-sm">
+                              {formatDate(entry.date)}
+                              <span className="text-navy-400 mx-1">→</span>
+                              {formatDate(entry.endDate!)}
+                            </span>
+                          </>
+                        ) : (
+                          formatDate(entry.date)
+                        )}
+                      </div>
+                      <span className="text-navy-400">•</span>
+                      <span className="text-sm text-navy-500 font-mono">
+                        #{entry.dutyId}
+                      </span>
+                      {isCancelled && (
+                        <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
+                          <Ban className="w-3 h-3" />
+                          Cancelled
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs text-navy-500 mb-0.5">
-                        Kilometers
+
+                  {/* Row 2: Stats */}
+                  {!isCancelled && (
+                    <div className="flex items-center gap-4 ml-9 flex-wrap">
+                      <div className="flex items-center gap-1 text-sm">
+                        <Clock className="w-3 h-3 text-navy-400" />
+                        <span className="text-navy-600">
+                          {decimalToTime(entry.timeIn, "12hr")} -{" "}
+                          {decimalToTime(entry.timeOut, "12hr")}
+                        </span>
                       </div>
-                      <div className="font-mono font-semibold text-navy-900">
-                        {entry.totalKms} km
+                      <div className="flex items-center gap-1 text-sm">
+                        <MapPin className="w-3 h-3 text-navy-400" />
+                        <span className="font-mono font-semibold text-navy-800">
+                          {entry.totalKms} km
+                        </span>
                       </div>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Clock className="w-3 h-3 text-navy-400" />
+                        <span className="font-mono font-semibold text-navy-800">
+                          {formatDuration(entry.totalTime)}
+                        </span>
+                      </div>
+                      {entry.extraKms > 0 && (
+                        <span className="badge badge-saffron text-xs">
+                          +{entry.extraKms} km
+                        </span>
+                      )}
+                      {entry.extraTime > 0 && (
+                        <span className="badge badge-saffron text-xs">
+                          +{formatDuration(entry.extraTime)}
+                        </span>
+                      )}
+                      {totalCharges > 0 && (
+                        <span className="badge badge-navy text-xs">
+                          {formatCurrency(totalCharges)}
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <div className="text-xs text-navy-500 mb-0.5">
-                        Duration
-                      </div>
-                      <div className="font-mono font-semibold text-navy-900">
-                        {formatDuration(entry.totalTime)} hrs
-                      </div>
+                  )}
+
+                  {/* Row 3: Remarks (if any) */}
+                  {entry.remark && (
+                    <div className="ml-9 mt-2 text-xs text-navy-500 italic truncate">
+                      {entry.remark}
                     </div>
-                  </div>
-                  <div className="shrink-0 w-32 flex flex-wrap gap-1 justify-end">
-                    {entry.extraKms > 0 && (
-                      <span className="badge badge-saffron text-xs">
-                        +{entry.extraKms} km
-                      </span>
-                    )}
-                    {entry.extraTime > 0 && (
-                      <span className="badge badge-saffron text-xs">
-                        +{formatDuration(entry.extraTime)} hrs
-                      </span>
-                    )}
-                    {totalCharges > 0 && (
-                      <span className="badge badge-navy text-xs">
-                        {formatCurrency(totalCharges)}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -1119,6 +1337,7 @@ function EntrySelectionCard({
               const entryDays = getEntryDayCount(entry);
               const isMultiDay = entryDays > 1;
               const isSelected = selectedEntries.includes(entry.id);
+              const isCancelled = entry.cancelled === true;
               const totalCharges =
                 entry.tollParking +
                 (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
@@ -1137,24 +1356,25 @@ function EntrySelectionCard({
                       : "border-cream-200 bg-white hover:border-saffron-200"
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5">
-                        {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-saffron-500" />
-                        ) : (
-                          <Square className="w-5 h-5 text-navy-300" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Calendar className="w-4 h-4 text-saffron-500" />
+                  {/* Header with checkbox and date */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="mt-0.5 shrink-0">
+                      {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-saffron-500" />
+                      ) : (
+                        <Square className="w-5 h-5 text-navy-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-saffron-500 shrink-0" />
                           {isMultiDay ? (
-                            <div className="flex flex-col">
-                              <span className="text-xs text-saffron-600 font-medium">
+                            <div>
+                              <span className="text-xs text-saffron-600 font-medium mr-2">
                                 {entryDays} days
                               </span>
-                              <span className="font-semibold text-navy-900">
+                              <span className="font-semibold text-navy-900 text-sm">
                                 {formatDate(entry.date)} →{" "}
                                 {formatDate(entry.endDate!)}
                               </span>
@@ -1165,35 +1385,88 @@ function EntrySelectionCard({
                             </span>
                           )}
                         </div>
+                        {isCancelled && (
+                          <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1 shrink-0">
+                            <Ban className="w-3 h-3" />
+                            Cancelled
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Hash className="w-4 h-4 text-navy-400" />
+                        <span className="font-mono text-navy-600">
+                          {entry.dutyId}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-3 text-sm ml-8">
-                    <Hash className="w-4 h-4 text-navy-400" />
-                    <span className="font-mono text-navy-600">
-                      {entry.dutyId}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 ml-8">
-                    <div className="bg-cream-50 rounded-xl p-3">
-                      <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                        <MapPin className="w-3 h-3" />
-                        Kilometers
+
+                  {/* Stats grid */}
+                  {!isCancelled && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 ml-8 mb-3">
+                        <div className="bg-cream-50 rounded-xl p-3">
+                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
+                            <Clock className="w-3 h-3" />
+                            Time
+                          </div>
+                          <div className="font-mono font-bold text-navy-900 text-sm">
+                            {decimalToTime(entry.timeIn, "12hr")} -{" "}
+                            {decimalToTime(entry.timeOut, "12hr")}
+                          </div>
+                        </div>
+                        <div className="bg-cream-50 rounded-xl p-3">
+                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
+                            <Clock className="w-3 h-3" />
+                            Duration
+                          </div>
+                          <div className="font-mono font-bold text-navy-900 text-sm">
+                            {formatDuration(entry.totalTime)}
+                          </div>
+                        </div>
+                        <div className="bg-cream-50 rounded-xl p-3">
+                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
+                            <MapPin className="w-3 h-3" />
+                            Kilometers
+                          </div>
+                          <div className="font-mono font-bold text-navy-900 text-sm">
+                            {entry.totalKms} km
+                          </div>
+                        </div>
+                        <div className="bg-cream-50 rounded-xl p-3">
+                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
+                            Charges
+                          </div>
+                          <div className="font-mono font-bold text-navy-900 text-sm">
+                            {formatCurrency(totalCharges)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="font-mono font-bold text-navy-900">
-                        {entry.totalKms} km
-                      </div>
+
+                      {/* Badges */}
+                      {(entry.extraKms > 0 || entry.extraTime > 0) && (
+                        <div className="flex flex-wrap gap-2 ml-8 mb-3">
+                          {entry.extraKms > 0 && (
+                            <span className="badge badge-saffron text-xs">
+                              +{entry.extraKms} km
+                            </span>
+                          )}
+                          {entry.extraTime > 0 && (
+                            <span className="badge badge-saffron text-xs">
+                              +{formatDuration(entry.extraTime)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Remarks */}
+                  {entry.remark && (
+                    <div className="ml-8 text-xs text-navy-500 italic truncate">
+                      {entry.remark}
                     </div>
-                    <div className="bg-cream-50 rounded-xl p-3">
-                      <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                        <Clock className="w-3 h-3" />
-                        Duration
-                      </div>
-                      <div className="font-mono font-bold text-navy-900">
-                        {formatDuration(entry.totalTime)} hrs
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -1221,6 +1494,33 @@ function InvoiceSummaryCard({
         Invoice Summary
       </h2>
       <div className="space-y-3">
+        {/* Totals Summary Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-cream-50 rounded-xl mb-2">
+          <div className="text-center">
+            <p className="text-xs text-navy-500">Days</p>
+            <p className="font-mono font-semibold text-navy-800">
+              {totals.totalDays}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-navy-500">Total KMs</p>
+            <p className="font-mono font-semibold text-navy-800">
+              {totals.totalKms}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-navy-500">Total Hours</p>
+            <p className="font-mono font-semibold text-navy-800">
+              {formatDuration(totals.totalTime)}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-navy-500">Extra KMs</p>
+            <p className="font-mono font-semibold text-saffron-600">
+              {totals.totalExtraKms}
+            </p>
+          </div>
+        </div>
         <div className="flex justify-between py-2">
           <span className="text-navy-600">
             Per day ({client.baseKmsPerDay} Kms / {client.baseHoursPerDay}{" "}
@@ -1387,15 +1687,31 @@ function InvoicePreview({
   totals: ReturnType<typeof calculateInvoiceTotals>;
   timeFormat: "12hr" | "24hr";
 }) {
+  // Sort entries by date (latest first)
+  const sortedEntries = [...entries].sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateB - dateA;
+  });
+
   return (
-    <div className="border-2 border-saffron-200 rounded-xl p-4 lg:p-8 bg-linear-to-b from-saffron-50/50 to-white">
-      <div className="text-center mb-6 lg:mb-8">
-        <p className="text-xs lg:text-sm text-navy-500 mb-2">
-          || Om Namah Shivaya ||
-        </p>
-        <h1 className="font-display text-2xl lg:text-3xl font-bold text-saffron-600 mb-2">
-          {companyInfo.companyName}
-        </h1>
+    <div
+      className="border-2 border-saffron-200 rounded-xl p-4 lg:p-8 bg-linear-to-b from-saffron-50/50 to-white"
+      style={{ fontFamily: "Roboto, sans-serif" }}
+    >
+      {/* Header with Logo left, text right (left-aligned) */}
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <PreviewLogo />
+        <div className="text-left">
+          <p className="text-xs lg:text-sm text-navy-500 mb-1">
+            || Om Namah Shivaya ||
+          </p>
+          <h1 className="font-display text-2xl lg:text-3xl font-bold text-saffron-600">
+            {companyInfo.companyName}
+          </h1>
+        </div>
+      </div>
+      <div className="text-center mb-6">
         <p className="text-xs lg:text-sm text-navy-600">
           Regd. Add. : {companyInfo.address}
         </p>
@@ -1430,124 +1746,60 @@ function InvoicePreview({
         </div>
       </div>
 
-      <div className="mb-6 overflow-x-auto">
-        <table className="w-full text-xs lg:text-sm border-collapse">
-          <thead>
-            <tr className="bg-saffron-100">
-              <th className="border border-saffron-200 p-2 text-left">Date</th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Duty ID
-              </th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Time In
-              </th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Time Out
-              </th>
-              <th className="border border-saffron-200 p-2 text-center">KMs</th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Hours
-              </th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Extra KMs
-              </th>
-              <th className="border border-saffron-200 p-2 text-center">
-                Extra Hrs
-              </th>
-              <th className="border border-saffron-200 p-2 text-right">Toll</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, idx) => {
-              const entryTotalCharges =
-                entry.tollParking +
-                (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
-                  0);
-              const entryDays = getEntryDayCount(entry);
-              const isMultiDay = entryDays > 1;
-              return (
-                <React.Fragment key={idx}>
-                  <tr className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}>
-                    <td className="border border-cream-200 p-2">
-                      {isMultiDay ? (
-                        <div>
-                          <div className="text-xs text-saffron-600 font-medium">
-                            {entryDays} days
-                          </div>
-                          <div>
-                            {formatDate(entry.date)} →{" "}
-                            {formatDate(entry.endDate!)}
-                          </div>
-                        </div>
-                      ) : (
-                        formatDate(entry.date)
-                      )}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center font-mono">
-                      {entry.dutyId}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center">
-                      {decimalToTime(entry.timeIn, timeFormat)}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center">
-                      {decimalToTime(entry.timeOut, timeFormat)}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center font-mono">
-                      {entry.totalKms}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center font-mono">
-                      {formatDuration(entry.totalTime)}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
-                      {entry.extraKms > 0 ? entry.extraKms : "-"}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
-                      {entry.extraTime > 0
-                        ? formatDuration(entry.extraTime)
-                        : "-"}
-                    </td>
-                    <td className="border border-cream-200 p-2 text-right font-mono">
-                      {formatCurrency(entryTotalCharges)}
-                    </td>
-                  </tr>
-                  {/* Remark row - only shown if remark exists */}
-                  {entry.remark && (
-                    <tr className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}>
-                      <td
-                        colSpan={9}
-                        className="border border-cream-200 p-2 text-left text-sm italic text-navy-600"
-                      >
-                        <span className="font-semibold">REMARK:</span>{" "}
-                        {entry.remark}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-            <tr className="bg-saffron-100 font-semibold">
-              <td
-                colSpan={6}
-                className="border border-saffron-200 p-2 text-right"
-              >
-                TOTALS:
-              </td>
-              <td className="border border-saffron-200 p-2 text-center font-mono">
-                {totals.totalExtraKms}
-              </td>
-              <td className="border border-saffron-200 p-2 text-center font-mono">
-                {formatDuration(totals.totalExtraHours)}
-              </td>
-              <td className="border border-saffron-200 p-2 text-right font-mono">
-                {formatCurrency(
-                  totals.totalTollParking + totals.totalAdditionalCharges,
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      {/* Summary Card - Compact */}
+      <div className="bg-cream-100 rounded-lg p-3 mb-4 border border-cream-200">
+        <h3 className="text-center font-semibold text-navy-900 text-sm mb-2">
+          Invoice Summary
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+          <div className="flex justify-between">
+            <span className="text-navy-500">Entries</span>
+            <span className="font-semibold">{entries.length}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Days</span>
+            <span className="font-semibold">{totals.totalDays}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Total KMs</span>
+            <span className="font-semibold">{totals.totalKms}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Total Hrs</span>
+            <span className="font-semibold">
+              {formatDuration(totals.totalTime)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Extra KMs</span>
+            <span className="font-semibold text-saffron-600">
+              {totals.totalExtraKms}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Extra Hrs</span>
+            <span className="font-semibold text-saffron-600">
+              {formatDuration(totals.totalExtraHours)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-navy-500">Toll/Parking</span>
+            <span className="font-semibold">
+              {formatCurrency(totals.totalTollParking)}
+            </span>
+          </div>
+          {totals.totalAdditionalCharges > 0 && (
+            <div className="flex justify-between">
+              <span className="text-navy-500">Additional Charges</span>
+              <span className="font-semibold">
+                {formatCurrency(totals.totalAdditionalCharges)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Totals Section */}
       <div className="flex justify-end">
         <div className="w-full sm:w-72 space-y-2 text-sm">
           <div className="flex justify-between py-1">
@@ -1641,16 +1893,282 @@ function InvoicePreview({
           <p className="font-semibold text-sm mb-2">
             For {companyInfo.companyName}
           </p>
-          <img
-            src={`data:image/png;base64,${process.env.NEXT_PUBLIC_SIGNATURE_BASE64}`}
-            alt="Signature"
-            className="h-16 mx-auto -mb-1 object-contain"
-          />
+          <PreviewSignature />
           <p className="text-sm border-t border-navy-300 pt-2">
             Authorised Signatory
           </p>
         </div>
       </div>
+
+      {/* Entries Table (separate section like Page 2 in PDF) */}
+      <div className="mt-8 pt-6 border-t-2 border-saffron-200">
+        <h3 className="text-center font-bold text-lg text-navy-900 border-y-2 border-navy-200 py-2 mb-6">
+          DUTY ENTRIES
+        </h3>
+
+        <div className="mb-6 overflow-x-auto">
+          <table className="w-full text-xs lg:text-sm border-collapse">
+            <thead>
+              <tr className="bg-saffron-100">
+                <th className="border border-saffron-200 p-2 text-left">
+                  Date
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Duty ID
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Time In
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Time Out
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  KMs
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Hours
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Extra KMs
+                </th>
+                <th className="border border-saffron-200 p-2 text-center">
+                  Extra Hrs
+                </th>
+                <th className="border border-saffron-200 p-2 text-right">
+                  Toll
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedEntries.map((entry, idx) => {
+                const entryTotalCharges =
+                  entry.tollParking +
+                  (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
+                    0);
+                const entryDays = getEntryDayCount(entry);
+                const isMultiDay = entryDays > 1;
+                const isCancelled = entry.cancelled === true;
+
+                // Use saved multiTimeMode if available, otherwise infer from data
+                // sameDaily: timeIn/timeOut are per day, totalTime = dailyTime × dayCount
+                let isSameDailyMode = true;
+                if (isMultiDay && !isCancelled) {
+                  if (entry.multiTimeMode) {
+                    // Use the saved mode
+                    isSameDailyMode = entry.multiTimeMode === "sameDaily";
+                  } else {
+                    // Infer from data (legacy entries)
+                    let dailyTime = entry.timeOut - entry.timeIn;
+                    if (dailyTime < 0) dailyTime += 24;
+                    const expectedTotalTime = dailyTime * entryDays;
+                    isSameDailyMode =
+                      Math.abs(entry.totalTime - expectedTotalTime) < 0.01;
+                  }
+                }
+
+                return (
+                  <React.Fragment key={idx}>
+                    <tr className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}>
+                      <td className="border border-cream-200 p-2">
+                        {isCancelled ? (
+                          <div>
+                            <div className="text-navy-500">
+                              {formatDate(entry.date)}
+                            </div>
+                            <div className="text-xs text-saffron-600 font-medium">
+                              CANCELLED
+                            </div>
+                          </div>
+                        ) : isMultiDay ? (
+                          <div>
+                            <div className="text-xs text-saffron-600 font-medium">
+                              {entryDays} days
+                            </div>
+                            <div>
+                              {formatDate(entry.date)} →{" "}
+                              {formatDate(entry.endDate!)}
+                            </div>
+                          </div>
+                        ) : (
+                          formatDate(entry.date)
+                        )}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center font-mono">
+                        {entry.dutyId}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center">
+                        {isCancelled ? (
+                          "-"
+                        ) : isMultiDay && !isSameDailyMode ? (
+                          entry.perDayTimes && entry.perDayTimes.length > 0 ? (
+                            <div className="text-xs space-y-0.5">
+                              {entry.perDayTimes.map((day, i) => (
+                                <div key={i}>
+                                  D{i + 1}:{" "}
+                                  {decimalToTime(day.timeIn, timeFormat)}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            "-"
+                          )
+                        ) : (
+                          decimalToTime(entry.timeIn, timeFormat)
+                        )}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center">
+                        {isCancelled ? (
+                          "-"
+                        ) : isMultiDay && !isSameDailyMode ? (
+                          entry.perDayTimes && entry.perDayTimes.length > 0 ? (
+                            <div className="text-xs space-y-0.5">
+                              {entry.perDayTimes.map((day, i) => (
+                                <div key={i}>
+                                  D{i + 1}:{" "}
+                                  {decimalToTime(day.timeOut, timeFormat)}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            "-"
+                          )
+                        ) : (
+                          decimalToTime(entry.timeOut, timeFormat)
+                        )}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center font-mono">
+                        {isCancelled ? "-" : entry.totalKms}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center font-mono">
+                        {isCancelled ? (
+                          "-"
+                        ) : (
+                          <div>
+                            {formatDuration(entry.totalTime)}
+                            {isMultiDay && !isSameDailyMode && (
+                              <span className="text-xs text-navy-400 block">
+                                (total)
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
+                        {isCancelled
+                          ? "-"
+                          : entry.extraKms > 0
+                            ? entry.extraKms
+                            : "-"}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-center font-mono text-saffron-600">
+                        {isCancelled
+                          ? "-"
+                          : entry.extraTime > 0
+                            ? formatDuration(entry.extraTime)
+                            : "-"}
+                      </td>
+                      <td className="border border-cream-200 p-2 text-right font-mono">
+                        {formatCurrency(entryTotalCharges)}
+                      </td>
+                    </tr>
+                    {/* Additional charges row */}
+                    {entry.additionalCharges &&
+                      entry.additionalCharges.length > 0 && (
+                        <tr
+                          className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}
+                        >
+                          <td
+                            colSpan={9}
+                            className="border border-cream-200 p-2 text-left text-sm text-saffron-600"
+                          >
+                            <span className="font-semibold">
+                              ADDITIONAL CHARGES:
+                            </span>{" "}
+                            {entry.additionalCharges
+                              .map(
+                                (c) =>
+                                  `${c.label}: ${formatCurrency(c.amount)}`,
+                              )
+                              .join(", ")}
+                          </td>
+                        </tr>
+                      )}
+                    {/* Remark row */}
+                    {entry.remark && (
+                      <tr
+                        className={idx % 2 === 0 ? "bg-white" : "bg-cream-50"}
+                      >
+                        <td
+                          colSpan={9}
+                          className="border border-cream-200 p-2 text-left text-sm text-navy-600"
+                        >
+                          <span className="font-semibold">REMARK:</span>{" "}
+                          {entry.remark}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              <tr className="bg-saffron-100 font-semibold">
+                <td
+                  colSpan={6}
+                  className="border border-saffron-200 p-2 text-right"
+                >
+                  TOTALS:
+                </td>
+                <td className="border border-saffron-200 p-2 text-center font-mono">
+                  {totals.totalExtraKms}
+                </td>
+                <td className="border border-saffron-200 p-2 text-center font-mono">
+                  {formatDuration(totals.totalExtraHours)}
+                </td>
+                <td className="border border-saffron-200 p-2 text-right font-mono">
+                  {formatCurrency(
+                    totals.totalTollParking + totals.totalAdditionalCharges,
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Component to load and display signature in preview
+function PreviewSignature() {
+  const [signature, setSignature] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    getAssetWithFallback("signature").then((data) => {
+      if (data) setSignature(data);
+    });
+  }, []);
+
+  if (!signature) return null;
+
+  return (
+    <img
+      src={signature}
+      alt="Signature"
+      className="h-16 mx-auto -mb-1 object-contain"
+    />
+  );
+}
+
+// Component to load and display logo in preview header
+function PreviewLogo() {
+  const [logo, setLogo] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    getAssetWithFallback("logo").then((data) => {
+      if (data) setLogo(data);
+    });
+  }, []);
+
+  if (!logo) return null;
+
+  return <img src={logo} alt="Company Logo" className="h-16 object-contain" />;
 }

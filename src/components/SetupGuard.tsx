@@ -6,6 +6,7 @@ import { useStore } from "@/store/useStore";
 import { motion } from "framer-motion";
 import { Car } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
+import { hasStoredAsset } from "@/lib/assetStorage";
 
 interface SetupGuardProps {
   children: React.ReactNode;
@@ -14,8 +15,10 @@ interface SetupGuardProps {
 export function SetupGuard({ children }: SetupGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isSetupComplete } = useStore();
+  const { isSetupComplete, isBrandingComplete } = useStore();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isCheckingAssets, setIsCheckingAssets] = useState(true);
+  const [hasAssets, setHasAssets] = useState(false);
 
   const isSetupPage = pathname === "/setup";
 
@@ -24,15 +27,49 @@ export function SetupGuard({ children }: SetupGuardProps) {
     setIsHydrated(true);
   }, []);
 
-  // Redirect to setup if not complete
+  // Check for branding assets in IndexedDB
   useEffect(() => {
-    if (isHydrated && !isSetupComplete && !isSetupPage) {
-      router.replace("/setup");
+    if (!isHydrated) return;
+
+    const checkAssets = async () => {
+      try {
+        const [hasLogo, hasSignature] = await Promise.all([
+          hasStoredAsset("logo"),
+          hasStoredAsset("signature"),
+        ]);
+        setHasAssets(hasLogo && hasSignature);
+      } catch {
+        setHasAssets(false);
+      } finally {
+        setIsCheckingAssets(false);
+      }
+    };
+
+    checkAssets();
+  }, [isHydrated]);
+
+  // Redirect to setup if not complete OR branding is missing
+  useEffect(() => {
+    if (isHydrated && !isCheckingAssets && !isSetupPage) {
+      // Redirect if setup not complete OR branding not complete (missing logo/signature)
+      const needsSetup =
+        !isSetupComplete || (!isBrandingComplete && !hasAssets);
+      if (needsSetup) {
+        router.replace("/setup");
+      }
     }
-  }, [isHydrated, isSetupComplete, isSetupPage, router]);
+  }, [
+    isHydrated,
+    isCheckingAssets,
+    isSetupComplete,
+    isBrandingComplete,
+    hasAssets,
+    isSetupPage,
+    router,
+  ]);
 
   // Show loading state while checking
-  if (!isHydrated) {
+  if (!isHydrated || isCheckingAssets) {
     return (
       <div className="fixed inset-0 bg-linear-to-br from-cream-50 via-white to-saffron-50 flex items-center justify-center">
         <motion.div
@@ -53,8 +90,11 @@ export function SetupGuard({ children }: SetupGuardProps) {
     );
   }
 
-  // If not setup complete and not on setup page, show loading while redirecting
-  if (!isSetupComplete && !isSetupPage) {
+  // Determine if we need to redirect
+  const needsSetup = !isSetupComplete || (!isBrandingComplete && !hasAssets);
+
+  // If needs setup and not on setup page, show loading while redirecting
+  if (needsSetup && !isSetupPage) {
     return (
       <div className="fixed inset-0 bg-linear-to-br from-cream-50 via-white to-saffron-50 flex items-center justify-center">
         <motion.div

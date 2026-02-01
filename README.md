@@ -6,7 +6,7 @@ A modern, offline-first invoice and duty management system for transport busines
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Storage](https://img.shields.io/badge/Storage-localStorage-brightgreen.svg)
+![Storage](https://img.shields.io/badge/Storage-IndexedDB%20%2B%20localStorage-brightgreen.svg)
 
 ---
 
@@ -21,6 +21,9 @@ A modern, offline-first invoice and duty management system for transport busines
 - [Data Types](#data-types)
 - [Invoice Calculation Logic](#invoice-calculation-logic)
 - [Multi-Day Entry System](#multi-day-entry-system)
+- [Cancelled Entries](#cancelled-entries)
+- [Branding & Customization](#branding--customization)
+- [Backup & Restore](#backup--restore)
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
 - [Storage & Limitations](#storage--limitations)
@@ -34,7 +37,7 @@ A modern, offline-first invoice and duty management system for transport busines
 
 Trippr is a full-stack duty and invoice management solution designed for transport businesses that need to track vehicle duty entries, generate professional PDF invoices, and monitor business statistics—all without requiring an internet connection.
 
-Built with Next.js and Zustand, the application stores all data in the browser's localStorage, ensuring complete privacy and offline functionality. Features include multi-day entry support, Excel/CSV import, real-time statistics, and professional PDF invoice generation with Indian numbering format.
+Built with Next.js and Zustand, the application stores data in browser's localStorage and IndexedDB, ensuring complete privacy and offline functionality. Features include multi-day entry support, cancelled entry tracking, duplicate ID prevention, Excel/CSV import, custom branding (logo & signature), encrypted cloud backups, real-time statistics, and professional PDF invoice generation with Indian numbering format.
 
 ---
 
@@ -43,9 +46,11 @@ Built with Next.js and Zustand, the application stores all data in the browser's
 ### Dashboard
 
 - Overview stats: Total duties, invoices, revenue, extra KMs, extra hours
-- Recent entries list (last 5)
-- Recent invoices list (last 5)
+- Recent entries list (last 5) with detailed information
+- Recent invoices list (last 5) with entry count and totals
 - Toggle between "All Time" and "Last 30 Days"
+- Cancelled entries excluded from all calculations
+- Responsive card layout
 
 ### Duty Entry Management
 
@@ -54,10 +59,14 @@ Built with Next.js and Zustand, the application stores all data in the browser's
   - **Same Daily**: Same schedule repeated each day
   - **Total Hours**: Manual total hours entry
   - **Per Day**: Different times for each day
+- **Cancelled Entries**: Mark entries as cancelled with remarks (excluded from invoices and statistics)
+- **Duplicate ID Prevention**: System checks for existing duty IDs and warns before creation
 - Auto-calculation of extra KMs and hours based on client rates
 - Support for toll/parking and additional charges (driver allowance, night halt, etc.)
 - Edit and delete entries with confirmation
 - Filter entries by client
+- Sort entries by date (newest first)
+- **Entry Details View**: Expanded view showing times, cancelled status, and remarks
 - Responsive design (table on desktop, cards on mobile)
 
 ### Excel/CSV Import
@@ -70,13 +79,18 @@ Built with Next.js and Zustand, the application stores all data in the browser's
 ### Invoice Generation
 
 - Professional **PDF invoices** with:
+  - Custom company logo and signature (uploaded by user)
   - Company header and details
-  - Itemized duty entries table
+  - Itemized duty entries table (sorted by date, newest first)
+  - Cancelled entries shown with strikethrough and "CANCELLED" badge
   - Comprehensive totals breakdown
   - Amount in words (Indian numbering: Lakhs, Crores)
   - Signature section and legal disclaimers
+- **Entry Selection**: View and select specific entries for invoice with detailed information
 - Real-time preview before download
-- Create, edit, and delete invoices
+- Create, edit, overwrite, and delete invoices
+- Automatic JPEG to PNG conversion for compatibility
+- Duplicate invoice number prevention
 
 ### Statistics & Analytics
 
@@ -102,10 +116,21 @@ Built with Next.js and Zustand, the application stores all data in the browser's
 
 ### Settings
 
-- Company information (name, contact, email, address)
-- Personal profile (name, time format 12hr/24hr)
-- Vehicle management
-- Client management
+- **Company Information**: Name, contact, email, address
+- **Personal Profile**: Name, time format (12hr/24hr)
+- **Logo & Signature Management**:
+  - Upload custom company logo and signature (PNG/JPG/JPEG)
+  - Automatic conversion to PNG format for PDF compatibility
+  - Stored in IndexedDB for offline access
+  - Max 2MB per file
+- **Vehicle Management**: Add/edit/delete vehicles, set default
+- **Client Management**: Add/edit/delete clients
+- **Backup & Restore**:
+  - Export full data backup as encrypted JSON
+  - Restore from backup file
+  - Automatic timestamp in filename
+  - Optional encryption with custom key
+- **Layout**: Reorganized settings page with no blank space
 
 ---
 
@@ -167,13 +192,16 @@ Built with Next.js and Zustand, the application stores all data in the browser's
 
 ### First Run Setup
 
-Complete the 5-step wizard:
+Complete the 6-step wizard:
 
 1. **Company Information** - Name, contact, email, address
 2. **Personal Profile** - Your name, time format (12hr/24hr)
 3. **First Vehicle** - Number plate, model
 4. **First Client** - Name and rate configuration
-5. **Backup Setup** - Optional configuration
+5. **Branding** - Upload company logo and signature (required)
+6. **Backup Setup** - Optional Google Drive backup configuration
+
+**Returning Users**: If you completed setup but didn't upload branding assets, you'll be redirected to the branding step to complete your setup.
 
 ### Scripts
 
@@ -199,24 +227,26 @@ trippr/
 │   │   ├── settings/page.tsx         # Settings (/settings)
 │   │   ├── setup/                    # Setup wizard (/setup)
 │   │   ├── oauth-callback/page.tsx   # OAuth handler
-│   │   ├── layout.tsx                # Root layout
+│   │   ├── layout.tsx                # Root layout with sidebar
 │   │   ├── globals.css               # Global styles
+│   │   ├── manifest.json             # PWA manifest
 │   │   └── not-found.tsx             # 404 page
 │   │
 │   ├── components/
 │   │   ├── AppProvider.tsx           # App context provider
-│   │   ├── Sidebar.tsx               # Navigation
-│   │   ├── SetupGuard.tsx            # Route protection
+│   │   ├── Sidebar.tsx               # Navigation sidebar
+│   │   ├── SetupGuard.tsx            # Route protection & branding check
 │   │   ├── InvoicePDF.tsx            # PDF download button
-│   │   └── InvoicePDFDocument.tsx    # PDF template
+│   │   └── InvoicePDFDocument.tsx    # PDF template (JPEG→PNG conversion)
 │   │
 │   ├── store/
-│   │   └── useStore.ts               # Zustand store
+│   │   └── useStore.ts               # Zustand store with persist
 │   │
 │   └── lib/
 │       ├── types.ts                  # TypeScript interfaces
-│       ├── encryption.ts             # Encryption utilities
-│       └── googleDrive.ts            # Google Drive API
+│       ├── encryption.ts             # AES-GCM encryption utilities
+│       ├── googleDrive.ts            # Google Drive API integration
+│       └── assetStorage.ts           # IndexedDB for logo/signature storage
 │
 ├── public/                           # Static assets
 ├── tailwind.config.ts                # Tailwind configuration
@@ -229,17 +259,21 @@ trippr/
 
 ## Pages & Routes
 
-| Route            | Page       | Access    | Purpose              |
-| ---------------- | ---------- | --------- | -------------------- |
-| `/`              | Dashboard  | Protected | Stats overview       |
-| `/entries`       | Entries    | Protected | Manage duty entries  |
-| `/invoice`       | Invoice    | Protected | Create/edit invoices |
-| `/statistics`    | Statistics | Protected | Analytics & charts   |
-| `/settings`      | Settings   | Protected | App configuration    |
-| `/setup`         | Setup      | Public    | First-time wizard    |
-| `/oauth-callback`| OAuth      | Public    | OAuth handler        |
+| Route             | Page       | Access    | Purpose              |
+| ----------------- | ---------- | --------- | -------------------- |
+| `/`               | Dashboard  | Protected | Stats overview       |
+| `/entries`        | Entries    | Protected | Manage duty entries  |
+| `/invoice`        | Invoice    | Protected | Create/edit invoices |
+| `/statistics`     | Statistics | Protected | Analytics & charts   |
+| `/settings`       | Settings   | Protected | App configuration    |
+| `/setup`          | Setup      | Public    | First-time wizard    |
+| `/oauth-callback` | OAuth      | Public    | OAuth handler        |
 
-**Route Protection**: `SetupGuard` redirects to `/setup` if setup not complete.
+**Route Protection**:
+
+- `SetupGuard` redirects to `/setup` if setup is not complete
+- Checks for branding assets (logo/signature) - redirects returning users to complete branding if missing
+- Allows existing data to be pre-populated for returning users
 
 ---
 
@@ -253,7 +287,7 @@ trippr/
   clientId: string;
   date: string;              // Start date (ISO)
   endDate?: string;          // End date for multi-day
-  dutyId: string;            // 8-digit random ID
+  dutyId: string;            // 8-digit random ID (unique)
   startingKms: number;
   closingKms: number;
   timeIn: string;            // "HH:MM"
@@ -261,7 +295,11 @@ trippr/
   tollParking: number;
   additionalCharges: { label: string; amount: number }[];
 
-  // Auto-calculated
+  // Cancelled entry tracking
+  isCancelled?: boolean;     // Mark as cancelled
+  cancelReason?: string;     // Reason for cancellation
+
+  // Auto-calculated (excluded if cancelled)
   totalKms: number;
   totalTime: number;         // Decimal hours
   extraKms: number;
@@ -275,11 +313,11 @@ trippr/
 {
   id: string;
   name: string;
-  baseKmsPerDay: number;     // Included KMs
-  baseHoursPerDay: number;   // Included hours
-  perDayRate: number;        // ₹ per day
-  extraKmRate: number;       // ₹ per extra KM
-  extraHourRate: number;     // ₹ per extra hour
+  baseKmsPerDay: number; // Included KMs
+  baseHoursPerDay: number; // Included hours
+  perDayRate: number; // ₹ per day
+  extraKmRate: number; // ₹ per extra KM
+  extraHourRate: number; // ₹ per extra hour
   serviceTaxPercent: number; // Tax %
 }
 ```
@@ -311,6 +349,120 @@ trippr/
   roundedTotal: number;
 }
 ```
+
+---
+
+## Cancelled Entries
+
+### How It Works
+
+Cancelled entries are marked as `isCancelled: true` and include an optional `cancelReason`. These entries:
+
+- **Excluded from calculations**: Do not contribute to invoice totals or statistics
+- **Visually distinct**: Shown with strikethrough text and "CANCELLED" badge
+- **Not billable**: Cannot be selected for invoices
+- **Preserved in records**: Remain in the system for auditing purposes
+
+### Display
+
+- **Entries page**: Red badge with strikethrough, shows cancel reason in details
+- **Invoice PDF**: Shown with grey strikethrough and "CANCELLED" badge
+- **Statistics**: Completely excluded from all calculations
+
+### Use Cases
+
+- Driver sick/unavailable
+- Vehicle breakdown
+- Client cancellation
+- Weather/emergency cancellations
+
+---
+
+## Branding & Customization
+
+### Company Logo & Signature
+
+Upload custom branding assets that appear on PDF invoices:
+
+**Upload Requirements**:
+
+- **Formats**: PNG, JPG, JPEG (auto-converted to PNG)
+- **Size**: Max 2MB per file
+- **Storage**: IndexedDB (offline access)
+- **Recommendation**: PNG format for best quality
+
+**Where They Appear**:
+
+- **Logo**: Top-left of invoice header
+- **Signature**: Bottom-right of invoice footer
+
+**Setup**:
+
+1. Navigate to Settings → Logo & Signature
+2. Click "Upload Logo" or "Upload Signature"
+3. Select image file (PNG/JPG/JPEG)
+4. System automatically converts JPEG to PNG for PDF compatibility
+
+**Technical Details**:
+
+- JPEG images are converted to PNG using HTML5 Canvas
+- Conversion prevents `@react-pdf/renderer` JPEG compatibility issues
+- Assets stored in IndexedDB database (`trippr_assets`)
+- No environment variables required
+
+---
+
+## Backup & Restore
+
+### Local Backup
+
+Export your entire application data as a JSON file:
+
+**What's Included**:
+
+- All duty entries
+- All invoices
+- Company information
+- User profile
+- Clients and vehicles
+- Backup configuration
+- Branding completion status
+
+**Export Process**:
+
+1. Settings → Backup section → "Export Backup"
+2. Optional: Enable encryption with custom key
+3. Download JSON file: `trippr-backup-YYYY-MM-DD-HH-mm-ss.json`
+
+**Restore Process**:
+
+1. Setup wizard welcome screen → "Restore from Backup"
+2. Or Settings → "Restore from Backup"
+3. Select backup JSON file
+4. If encrypted, enter encryption key
+5. Confirm restoration (overwrites current data)
+
+### Encryption
+
+**AES-GCM Encryption**:
+
+- Optional encryption using Web Crypto API
+- User-provided encryption key (not stored)
+- 256-bit key derived from password using PBKDF2
+- Encrypted data structure:
+  ```json
+  {
+    "encrypted": "base64-encoded-ciphertext",
+    "iv": "base64-initialization-vector",
+    "salt": "base64-salt-for-key-derivation"
+  }
+  ```
+
+**Important**: If you lose your encryption key, the backup cannot be recovered!
+
+### Cloud Backup (Google Drive)
+
+**Coming Soon** - Optional Google Drive integration for automatic cloud backups.
 
 ---
 
@@ -414,6 +566,7 @@ The system auto-detects columns by keywords:
 ## PDF Invoice Structure
 
 1. **Header**
+   - Custom company logo (uploaded by user)
    - "॥ Om Namah Shivaya ॥"
    - Company name and details
    - Invoice number and date
@@ -422,11 +575,12 @@ The system auto-detects columns by keywords:
    - Client name
    - Vehicle number
 
-3. **Entry Table**
+3. **Entry Table** (sorted by date, newest first)
    - Date, Duty ID
    - KMs (total), Time (total)
    - Extra KMs, Extra Hours
    - Toll/Parking
+   - **Cancelled entries**: Shown with strikethrough and "CANCELLED" badge
 
 4. **Summary**
    - Per day amount (days × rate)
@@ -435,24 +589,46 @@ The system auto-detects columns by keywords:
    - Subtotal, Service tax, Grand total
    - Toll/parking, Additional charges
    - **Net total** and **Rounded amount**
-   - Amount in words
+   - Amount in words (Indian numbering system)
 
 5. **Footer**
    - "Subject to Mumbai Jurisdiction only"
    - Payment terms
-   - Signature area
+   - Custom signature (uploaded by user)
+
+**Technical Notes**:
+
+- All images (logo/signature) automatically converted from JPEG to PNG
+- Supports multi-page invoices for large entry counts
+- Indian currency format with proper comma placement
 
 ---
 
 ## Storage & Limitations
 
-### localStorage-Based Storage
+### Dual Storage System
 
-All data is stored in browser's localStorage. This enables:
+Trippr uses two browser storage mechanisms:
+
+**localStorage** (Main Data):
+
+- Company info, user profile
+- Duty entries and invoices
+- Clients and vehicles
+- Backup configuration
+
+**IndexedDB** (Assets):
+
+- Company logo
+- Signature image
+- Stored as base64 PNG data URLs
+
+This hybrid approach enables:
 
 - **Offline functionality** - No internet required
 - **Privacy** - Data stays on your device
 - **No server costs** - Everything runs locally
+- **Asset persistence** - Images survive cache clearing
 
 ### Storage Capacity
 
@@ -473,16 +649,18 @@ All data is stored in browser's localStorage. This enables:
 | --------------------- | ------------------------------------------------- |
 | **Single Device**     | Data stored locally only; no sync between devices |
 | **Single User**       | No multi-user or access control                   |
-| **No Raw Export**     | Cannot export data (only PDF invoices)            |
 | **Browser Dependent** | Clearing browser data deletes everything          |
 | **Storage Cap**       | ~5,000 entries recommended maximum                |
+| **No Cloud Sync**     | Manual backup/restore required                    |
 
 ### Data Safety Tips
 
-1. **Don't clear browser data** - All your data is in localStorage
+1. **Don't clear browser data** - All your data is in localStorage/IndexedDB
 2. **Use same browser** - Data doesn't sync across browsers
-3. **Download invoices** - Keep PDF copies as records
-4. **Regular browser** - Don't use incognito/private mode
+3. **Regular backups** - Export backup JSON files regularly
+4. **Keep backup safe** - If encrypted, remember your encryption key
+5. **Download invoices** - Keep PDF copies as records
+6. **Regular browser** - Don't use incognito/private mode
 
 ---
 

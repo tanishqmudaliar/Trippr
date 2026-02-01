@@ -13,9 +13,17 @@ import {
   ArrowRight,
   ToggleLeft,
   ToggleRight,
+  MapPin,
+  Hash,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
-import { formatCurrency, formatDate } from "@/lib/types";
+import {
+  formatCurrency,
+  formatDate,
+  formatDuration,
+  getEntryDayCount,
+} from "@/lib/types";
 
 const container = {
   hidden: { opacity: 0 },
@@ -62,12 +70,12 @@ export default function Dashboard() {
   const totalInvoices = filteredInvoices.length;
   const totalRevenue = filteredInvoices.reduce(
     (sum, inv) => sum + inv.roundedTotal,
-    0
+    0,
   );
   const totalExtraKms = filteredEntries.reduce((sum, e) => sum + e.extraKms, 0);
   const totalExtraHours = filteredEntries.reduce(
     (sum, e) => sum + e.extraTime,
-    0
+    0,
   );
 
   // Recent entries (always show 5 most recent from all data)
@@ -79,7 +87,7 @@ export default function Dashboard() {
   const recentInvoices = [...invoices]
     .sort(
       (a, b) =>
-        new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
+        new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime(),
     )
     .slice(0, 5);
 
@@ -215,44 +223,97 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentEntries.map((entry, index) => (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 lg:p-4 rounded-xl bg-cream-50 hover:bg-saffron-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                    <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg bg-white flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow shrink-0">
-                      <Calendar className="w-4 h-4 lg:w-5 lg:h-5 text-saffron-500" />
+              {recentEntries.map((entry, index) => {
+                const entryDays = getEntryDayCount(entry);
+                const isMultiDay = entryDays > 1;
+                const isCancelled = entry.cancelled === true;
+                const totalCharges =
+                  entry.tollParking +
+                  (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
+                    0);
+
+                return (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-3 lg:p-4 rounded-xl bg-cream-50 hover:bg-saffron-50 transition-colors group"
+                  >
+                    {/* Row 1: Date, Duty ID, Client */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg bg-white flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow shrink-0">
+                          <Calendar className="w-4 h-4 lg:w-5 lg:h-5 text-saffron-500" />
+                        </div>
+                        <div>
+                          {isMultiDay ? (
+                            <div>
+                              <span className="text-xs text-saffron-600 font-medium mr-2">
+                                {entryDays} days
+                              </span>
+                              <span className="font-semibold text-navy-900 text-sm lg:text-base">
+                                {formatDate(entry.date)} →{" "}
+                                {formatDate(entry.endDate!)}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="font-semibold text-navy-900 text-sm lg:text-base">
+                              {formatDate(entry.date)}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 text-xs lg:text-sm text-navy-500">
+                            <span className="font-mono">#{entry.dutyId}</span>
+                            <span className="text-navy-300">•</span>
+                            <span className="truncate">
+                              {getClientName(entry.clientId)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {isCancelled && (
+                        <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
+                          <Ban className="w-3 h-3" />
+                          Cancelled
+                        </span>
+                      )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-navy-900 text-sm lg:text-base">
-                        {formatDate(entry.date)}
-                      </p>
-                      <p className="text-xs lg:text-sm text-navy-500 truncate">
-                        {getClientName(entry.clientId)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 lg:gap-6 shrink-0">
-                    <div className="text-right hidden sm:block">
-                      <p className="font-mono text-xs lg:text-sm font-semibold text-navy-800">
-                        {entry.totalKms} km
-                      </p>
-                      <p className="text-xs text-navy-500">
-                        {entry.totalTime.toFixed(1)} hrs
-                      </p>
-                    </div>
-                    {entry.extraKms > 0 && (
-                      <span className="badge badge-saffron text-xs">
-                        +{entry.extraKms} km
-                      </span>
+
+                    {/* Row 2: Stats */}
+                    {!isCancelled && (
+                      <div className="flex items-center gap-4 ml-12 lg:ml-13 flex-wrap">
+                        <div className="flex items-center gap-1 text-xs lg:text-sm">
+                          <MapPin className="w-3 h-3 text-navy-400" />
+                          <span className="font-mono font-semibold text-navy-800">
+                            {entry.totalKms} km
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs lg:text-sm">
+                          <Clock className="w-3 h-3 text-navy-400" />
+                          <span className="font-mono font-semibold text-navy-800">
+                            {formatDuration(entry.totalTime)}
+                          </span>
+                        </div>
+                        {entry.extraKms > 0 && (
+                          <span className="badge badge-saffron text-xs">
+                            +{entry.extraKms} km
+                          </span>
+                        )}
+                        {entry.extraTime > 0 && (
+                          <span className="badge badge-saffron text-xs">
+                            +{formatDuration(entry.extraTime)}
+                          </span>
+                        )}
+                        {totalCharges > 0 && (
+                          <span className="badge badge-navy text-xs">
+                            {formatCurrency(totalCharges)}
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </motion.div>
@@ -286,39 +347,78 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentInvoices.map((invoice, index) => (
-                <motion.div
-                  key={invoice.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 lg:p-4 rounded-xl bg-cream-50 hover:bg-saffron-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                    <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg bg-white flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow shrink-0">
-                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-navy-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-navy-900 text-sm lg:text-base">
-                        #{invoice.invoiceNumber}
-                      </p>
-                      <p className="text-xs lg:text-sm text-navy-500 truncate">
-                        {getClientName(invoice.clientId)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 lg:gap-6 shrink-0">
-                    <div className="text-right">
-                      <p className="font-mono text-xs lg:text-sm font-semibold text-saffron-600">
+              {recentInvoices.map((invoice, index) => {
+                const invoiceEntries = entries.filter((e) =>
+                  invoice.entryIds.includes(e.id),
+                );
+                const totalDays = invoiceEntries.reduce(
+                  (sum, e) => sum + getEntryDayCount(e),
+                  0,
+                );
+                const totalExtraKms = invoiceEntries.reduce(
+                  (sum, e) => sum + (e.cancelled ? 0 : e.extraKms),
+                  0,
+                );
+                const totalExtraHrs = invoiceEntries.reduce(
+                  (sum, e) => sum + (e.cancelled ? 0 : e.extraTime),
+                  0,
+                );
+
+                return (
+                  <motion.div
+                    key={invoice.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-3 lg:p-4 rounded-xl bg-cream-50 hover:bg-saffron-50 transition-colors group"
+                  >
+                    {/* Row 1: Invoice number, client, total */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-lg bg-white flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow shrink-0">
+                          <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-navy-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-navy-900 text-sm lg:text-base">
+                            #{invoice.invoiceNumber}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs lg:text-sm text-navy-500">
+                            <span className="truncate">
+                              {getClientName(invoice.clientId)}
+                            </span>
+                            <span className="text-navy-300">•</span>
+                            <span>{formatDate(invoice.invoiceDate)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="font-mono text-sm lg:text-base font-bold text-saffron-600">
                         {formatCurrency(invoice.roundedTotal)}
                       </p>
-                      <p className="text-xs text-navy-500">
-                        {formatDate(invoice.invoiceDate)}
-                      </p>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+
+                    {/* Row 2: Stats */}
+                    <div className="flex items-center gap-4 ml-12 lg:ml-13 flex-wrap">
+                      <span className="badge bg-cream-200 text-navy-700 text-xs">
+                        {invoice.entryIds.length}{" "}
+                        {invoice.entryIds.length === 1 ? "entry" : "entries"}
+                      </span>
+                      <span className="badge bg-cream-200 text-navy-700 text-xs">
+                        {totalDays} {totalDays === 1 ? "day" : "days"}
+                      </span>
+                      {totalExtraKms > 0 && (
+                        <span className="badge badge-saffron text-xs">
+                          +{totalExtraKms} km
+                        </span>
+                      )}
+                      {totalExtraHrs > 0 && (
+                        <span className="badge badge-saffron text-xs">
+                          +{formatDuration(totalExtraHrs)}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </motion.div>

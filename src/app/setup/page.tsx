@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
@@ -16,9 +16,25 @@ import {
   Check,
   RefreshCw,
   AlertCircle,
+  Image as ImageIcon,
+  FileSignature,
+  Upload,
+  X,
 } from "lucide-react";
+import {
+  saveAsset,
+  fileToBase64,
+  validateImageFile,
+  type AssetKey,
+} from "@/lib/assetStorage";
 
-type Step = "company" | "profile" | "vehicle" | "client" | "backup";
+type Step =
+  | "company"
+  | "profile"
+  | "vehicle"
+  | "client"
+  | "branding"
+  | "backup";
 
 // InputField component defined OUTSIDE of SetupPage to prevent re-creation on every render
 function InputField({
@@ -69,60 +85,104 @@ function InputField({
   );
 }
 
-const steps: { id: Step; label: string; icon: React.ElementType }[] = [
+const allSteps: { id: Step; label: string; icon: React.ElementType }[] = [
   { id: "company", label: "Company", icon: Building2 },
   { id: "profile", label: "Profile", icon: User },
   { id: "vehicle", label: "Vehicle", icon: Car },
   { id: "client", label: "Client", icon: Users },
+  { id: "branding", label: "Branding", icon: ImageIcon },
   { id: "backup", label: "Backup", icon: Shield },
 ];
 
+// Simpler steps for returning users who only need to add branding
+const brandingOnlySteps: {
+  id: Step;
+  label: string;
+  icon: React.ElementType;
+}[] = [{ id: "branding", label: "Branding", icon: ImageIcon }];
+
 export default function SetupPage() {
   const router = useRouter();
-  const { isSetupComplete, completeSetup } = useStore();
-  const [currentStep, setCurrentStep] = useState<Step>("company");
+  const {
+    isSetupComplete,
+    isBrandingComplete,
+    completeSetup,
+    restoreFromBackup,
+    markBrandingComplete,
+    companyInfo,
+    userProfile,
+    vehicles,
+    clients,
+  } = useStore();
+
+  // Determine if this is a returning user who just needs branding
+  const isReturningUser = isSetupComplete && !isBrandingComplete;
+
+  // Use simpler steps for returning users
+  const steps = isReturningUser ? brandingOnlySteps : allSteps;
+
+  const [showWelcome, setShowWelcome] = useState(!isReturningUser);
+  const [currentStep, setCurrentStep] = useState<Step>(
+    isReturningUser ? "branding" : "company",
+  );
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
-  // Form data
+  // Form data - pre-populate with existing data for returning users
   const [companyData, setCompanyData] = useState({
-    companyName: "",
-    businessContact: "",
-    businessEmail: "",
-    address: "",
+    companyName: companyInfo?.companyName || "",
+    businessContact: companyInfo?.businessContact || "",
+    businessEmail: companyInfo?.businessEmail || "",
+    address: companyInfo?.address || "",
   });
 
   const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
+    firstName: userProfile?.firstName || "",
+    lastName: userProfile?.lastName || "",
   });
 
   const [vehicleData, setVehicleData] = useState({
-    numberPlate: "",
-    model: "",
+    numberPlate: vehicles[0]?.numberPlate || "",
+    model: vehicles[0]?.model || "",
   });
 
+  const firstClient = clients[0];
   const [clientData, setClientData] = useState({
-    name: "",
-    baseKmsPerDay: "",
-    baseHoursPerDay: "",
-    perDayRate: "",
-    extraKmRate: "",
-    extraHourRate: "",
-    serviceTaxPercent: "",
+    name: firstClient?.name || "",
+    baseKmsPerDay: firstClient?.baseKmsPerDay?.toString() || "",
+    baseHoursPerDay: firstClient?.baseHoursPerDay?.toString() || "",
+    perDayRate: firstClient?.perDayRate?.toString() || "",
+    extraKmRate: firstClient?.extraKmRate?.toString() || "",
+    extraHourRate: firstClient?.extraHourRate?.toString() || "",
+    serviceTaxPercent: firstClient?.serviceTaxPercent?.toString() || "",
   });
+
+  // Branding state (optional - for logo and signature)
+  const [brandingData, setBrandingData] = useState<{
+    logoBase64: string | null;
+    signatureBase64: string | null;
+  }>({
+    logoBase64: null,
+    signatureBase64: null,
+  });
+  const [brandingError, setBrandingError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const [backupData, setBackupData] = useState({
     enableBackup: false,
     encryptionKey: "",
   });
 
-  // Redirect if setup is already complete
+  // Redirect if setup AND branding are both complete
   useEffect(() => {
-    if (isSetupComplete) {
+    if (isSetupComplete && isBrandingComplete) {
       router.replace("/");
     }
-  }, [isSetupComplete, router]);
+  }, [isSetupComplete, isBrandingComplete, router]);
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
 
@@ -195,6 +255,15 @@ export default function SetupPage() {
         )
           newErrors.serviceTaxPercent = "Cannot exceed 100%";
         break;
+      case "branding":
+        // Logo and signature are now required
+        if (!brandingData.logoBase64) {
+          newErrors.logo = "Company logo is required";
+        }
+        if (!brandingData.signatureBase64) {
+          newErrors.signature = "Signature is required";
+        }
+        break;
       case "backup":
         if (backupData.enableBackup && !backupData.encryptionKey.trim()) {
           newErrors.encryptionKey =
@@ -211,6 +280,92 @@ export default function SetupPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle branding file upload
+  const handleBrandingUpload = async (
+    type: AssetKey,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setBrandingError(validation.error || "Invalid file");
+      return;
+    }
+
+    try {
+      const base64 = await fileToBase64(file);
+      if (type === "logo") {
+        setBrandingData((prev) => ({ ...prev, logoBase64: base64 }));
+      } else {
+        setBrandingData((prev) => ({ ...prev, signatureBase64: base64 }));
+      }
+      setBrandingError(null);
+    } catch {
+      setBrandingError(`Failed to process ${type}`);
+    }
+
+    event.target.value = "";
+  };
+
+  // Remove branding asset
+  const handleBrandingRemove = (type: AssetKey) => {
+    if (type === "logo") {
+      setBrandingData((prev) => ({ ...prev, logoBase64: null }));
+    } else {
+      setBrandingData((prev) => ({ ...prev, signatureBase64: null }));
+    }
+  };
+
+  // Handle local backup restore
+  const handleRestoreFromFile = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setRestoreError(null);
+    setIsRestoring(true);
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Validate the backup data structure
+      if (
+        !data.companyInfo ||
+        !data.userProfile ||
+        !data.vehicles ||
+        !data.clients
+      ) {
+        throw new Error("Invalid backup file format");
+      }
+
+      // Restore the data
+      restoreFromBackup({
+        companyInfo: data.companyInfo,
+        userProfile: data.userProfile,
+        vehicles: data.vehicles,
+        clients: data.clients,
+        entries: data.entries || [],
+        invoices: data.invoices || [],
+        backupConfig: data.backupConfig || null,
+      });
+
+      // Redirect to home
+      router.replace("/");
+    } catch (err) {
+      console.error("Restore error:", err);
+      setRestoreError(
+        err instanceof Error ? err.message : "Failed to restore backup",
+      );
+    } finally {
+      setIsRestoring(false);
+      event.target.value = "";
+    }
+  };
+
   const handleNext = () => {
     if (!validateStep(currentStep)) return;
 
@@ -224,12 +379,31 @@ export default function SetupPage() {
     const prevIndex = currentStepIndex - 1;
     if (prevIndex >= 0) {
       setCurrentStep(steps[prevIndex].id);
+    } else {
+      // Go back to welcome screen
+      setShowWelcome(true);
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!validateStep("backup")) return;
 
+    // Save branding assets to IndexedDB (required)
+    if (brandingData.logoBase64) {
+      await saveAsset("logo", brandingData.logoBase64);
+    }
+    if (brandingData.signatureBase64) {
+      await saveAsset("signature", brandingData.signatureBase64);
+    }
+
+    // If returning user just completing branding, mark branding complete and redirect
+    if (isReturningUser) {
+      markBrandingComplete();
+      router.replace("/");
+      return;
+    }
+
+    // New user - complete full setup
     completeSetup({
       companyInfo: {
         id: "company-info",
@@ -301,12 +475,152 @@ export default function SetupPage() {
         }
       }
     },
-    [currentStepIndex, handleComplete, handleNext]
+    [currentStepIndex, handleComplete, handleNext],
   );
 
-  // Don't render anything while checking setup status
-  if (isSetupComplete) {
+  // Don't render anything while checking setup status (only if fully complete)
+  if (isSetupComplete && isBrandingComplete) {
     return null;
+  }
+
+  // Welcome screen - choose between restore or fresh setup
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-cream-50 via-white to-saffron-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-lg"
+        >
+          <style jsx>{`
+            @font-face {
+              font-family: "LogoFont";
+              src: url("/fonts/logo.ttf") format("truetype");
+              font-weight: normal;
+              font-style: normal;
+            }
+          `}</style>
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="mx-auto mb-4"
+            >
+              <span
+                style={{
+                  fontFamily: "LogoFont, serif",
+                  fontSize: "3rem",
+                  color: "#f97316",
+                  borderTop: "3px solid #f97316",
+                  borderBottom: "3px solid #f97316",
+                  padding: "0 30px",
+                  display: "inline-block",
+                }}
+              >
+                Trippr
+              </span>
+            </motion.div>
+            <h1 className="font-display text-3xl font-bold text-navy-900 mb-2">
+              Welcome to Your Travel Manager
+            </h1>
+            <p className="text-navy-600">Get started with your journey</p>
+          </div>
+
+          <div className="card p-6 lg:p-8 space-y-4">
+            <h2 className="font-display text-xl font-semibold text-navy-900 text-center mb-2">
+              How would you like to start?
+            </h2>
+
+            {/* Restore from Backup Option */}
+            <div className="p-4 rounded-xl bg-cream-50 border border-cream-200 hover:border-saffron-300 transition-all">
+              <h3 className="font-medium text-navy-800 mb-2 flex items-center gap-2">
+                <Upload className="w-5 h-5 text-saffron-500" />
+                Restore from Backup
+              </h3>
+              <p className="text-sm text-navy-600 mb-3">
+                Upload a .json backup file exported from Settings to restore all
+                your data.
+              </p>
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleRestoreFromFile}
+                className="hidden"
+              />
+              <button
+                onClick={() => restoreInputRef.current?.click()}
+                disabled={isRestoring}
+                className="w-full px-4 py-2.5 rounded-lg bg-saffron-500 text-white font-medium hover:bg-saffron-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isRestoring ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Restoring...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Choose Backup File
+                  </>
+                )}
+              </button>
+              {restoreError && (
+                <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {restoreError}
+                </p>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-cream-200" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-3 bg-white text-navy-400">or</span>
+              </div>
+            </div>
+
+            {/* Fresh Setup Option */}
+            <button
+              onClick={() => setShowWelcome(false)}
+              className="w-full p-4 rounded-xl border-2 border-cream-200 hover:border-saffron-300 hover:bg-cream-50 transition-all text-left"
+            >
+              <h3 className="font-medium text-navy-800 mb-1 flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-saffron-500" />
+                Start Fresh
+              </h3>
+              <p className="text-sm text-navy-600">
+                Set up your account from scratch with a step-by-step guide.
+              </p>
+            </button>
+          </div>
+
+          {/* Footer */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-center mt-8 pb-4"
+          >
+            <p className="text-sm text-navy-600">
+              Made with <span className="text-red-500 animate-pulse">❤️</span>{" "}
+              by{" "}
+              <a
+                href="https://github.com/tanishqmudaliar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
+              >
+                Tanishq Mudaliar
+              </a>
+            </p>
+          </motion.div>
+        </motion.div>
+      </div>
+    );
   }
 
   return (
@@ -346,50 +660,56 @@ export default function SetupPage() {
             </span>
           </motion.div>
           <h1 className="font-display text-3xl font-bold text-navy-900 mb-2">
-            Welcome to Your Travel Manager
+            {isReturningUser
+              ? "Complete Your Setup"
+              : "Welcome to Your Travel Manager"}
           </h1>
           <p className="text-navy-600">
-            Let&apos;s set up your account in a few easy steps
+            {isReturningUser
+              ? "Please upload your company logo and signature to continue"
+              : "Let's set up your account in a few easy steps"}
           </p>
         </div>
 
-        {/* Progress Steps */}
-        <div className="flex justify-between mb-8 px-4">
-          {steps.map((step, index) => {
-            const isActive = step.id === currentStep;
-            const isCompleted = index < currentStepIndex;
-            const Icon = step.icon;
+        {/* Progress Steps - hide for returning users with single step */}
+        {!isReturningUser && (
+          <div className="flex justify-between mb-8 px-4">
+            {steps.map((step, index) => {
+              const isActive = step.id === currentStep;
+              const isCompleted = index < currentStepIndex;
+              const Icon = step.icon;
 
-            return (
-              <div key={step.id} className="flex flex-col items-center">
-                <motion.div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    isCompleted
-                      ? "bg-emerald-500 text-white"
-                      : isActive
-                      ? "bg-saffron-500 text-white shadow-lg shadow-saffron-500/30"
-                      : "bg-cream-200 text-navy-400"
-                  }`}
-                  animate={isActive ? { scale: [1, 1.1, 1] } : {}}
-                  transition={{ duration: 0.3 }}
-                >
-                  {isCompleted ? (
-                    <Check className="w-5 h-5" />
-                  ) : (
-                    <Icon className="w-5 h-5" />
-                  )}
-                </motion.div>
-                <span
-                  className={`text-xs mt-2 font-medium ${
-                    isActive ? "text-saffron-600" : "text-navy-400"
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <div key={step.id} className="flex flex-col items-center">
+                  <motion.div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      isCompleted
+                        ? "bg-emerald-500 text-white"
+                        : isActive
+                          ? "bg-saffron-500 text-white shadow-lg shadow-saffron-500/30"
+                          : "bg-cream-200 text-navy-400"
+                    }`}
+                    animate={isActive ? { scale: [1, 1.1, 1] } : {}}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {isCompleted ? (
+                      <Check className="w-5 h-5" />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
+                  </motion.div>
+                  <span
+                    className={`text-xs mt-2 font-medium ${
+                      isActive ? "text-saffron-600" : "text-navy-400"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Form Card */}
         <div className="card p-6 lg:p-8">
@@ -680,6 +1000,170 @@ export default function SetupPage() {
                 </div>
               )}
 
+              {/* Branding Step */}
+              {currentStep === "branding" && (
+                <div className="space-y-5">
+                  <div className="mb-6">
+                    <h2 className="font-display text-xl font-bold text-navy-900">
+                      Logo & Signature
+                    </h2>
+                    <p className="text-sm text-navy-500 mt-1">
+                      Add your company branding for invoices (optional)
+                    </p>
+                  </div>
+
+                  {brandingError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {brandingError}
+                      <button
+                        onClick={() => setBrandingError(null)}
+                        className="ml-auto"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Company Logo */}
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-navy-700">
+                        Company Logo
+                      </label>
+                      <div className="border-2 border-dashed border-cream-300 rounded-xl p-4 text-center min-h-40 flex flex-col items-center justify-center">
+                        {brandingData.logoBase64 ? (
+                          <div className="space-y-3">
+                            <img
+                              src={brandingData.logoBase64}
+                              alt="Company Logo"
+                              className="max-h-20 mx-auto object-contain"
+                            />
+                            <p className="text-xs text-navy-500">
+                              Logo uploaded
+                            </p>
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => logoInputRef.current?.click()}
+                                className="btn-secondary text-xs py-1.5 px-3"
+                              >
+                                <Upload className="w-3 h-3" />
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleBrandingRemove("logo")}
+                                className="text-xs py-1.5 px-3 rounded-lg text-red-600 hover:bg-red-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <ImageIcon className="w-10 h-10 mx-auto text-cream-400" />
+                            <p className="text-sm text-navy-500">
+                              No logo uploaded
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => logoInputRef.current?.click()}
+                              className="btn-secondary text-sm py-2"
+                            >
+                              <Upload className="w-4 h-4" />
+                              Upload Logo
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={(e) => handleBrandingUpload("logo", e)}
+                        className="hidden"
+                      />
+                    </div>
+
+                    {/* Signature */}
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-navy-700">
+                        Signature
+                      </label>
+                      <div className="border-2 border-dashed border-cream-300 rounded-xl p-4 text-center min-h-40 flex flex-col items-center justify-center">
+                        {brandingData.signatureBase64 ? (
+                          <div className="space-y-3">
+                            <img
+                              src={brandingData.signatureBase64}
+                              alt="Signature"
+                              className="max-h-20 mx-auto object-contain"
+                            />
+                            <p className="text-xs text-navy-500">
+                              Signature uploaded
+                            </p>
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  signatureInputRef.current?.click()
+                                }
+                                className="btn-secondary text-xs py-1.5 px-3"
+                              >
+                                <Upload className="w-3 h-3" />
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleBrandingRemove("signature")
+                                }
+                                className="text-xs py-1.5 px-3 rounded-lg text-red-600 hover:bg-red-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <FileSignature className="w-10 h-10 mx-auto text-cream-400" />
+                            <p className="text-sm text-navy-500">
+                              No signature uploaded
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => signatureInputRef.current?.click()}
+                              className="btn-secondary text-sm py-2"
+                            >
+                              <Upload className="w-4 h-4" />
+                              Upload Signature
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={signatureInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={(e) => handleBrandingUpload("signature", e)}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-cream-100 rounded-xl space-y-1">
+                    <p className="text-sm text-navy-600">
+                      <strong>Note:</strong> This step is required. You can
+                      always update these later in Settings.
+                    </p>
+                    <p className="text-xs text-navy-500">
+                      Accepted formats: PNG, JPG, JPEG (max 2MB). PNG is
+                      recommended for best quality.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Backup Step */}
               {currentStep === "backup" && (
                 <div className="space-y-5">
@@ -787,23 +1271,22 @@ export default function SetupPage() {
           </AnimatePresence>
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8 pt-6 border-t border-cream-200">
-            <button
-              onClick={handlePrev}
-              disabled={currentStepIndex === 0}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
-                currentStepIndex === 0
-                  ? "text-navy-300 cursor-not-allowed"
-                  : "text-navy-600 hover:bg-cream-100"
-              }`}
-            >
-              <ChevronLeft className="w-5 h-5" />
-              Back
-            </button>
+          <div
+            className={`flex mt-8 pt-6 border-t border-cream-200 ${isReturningUser ? "justify-end" : "justify-between"}`}
+          >
+            {!isReturningUser && (
+              <button
+                onClick={handlePrev}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-navy-600 hover:bg-cream-100"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Back
+              </button>
+            )}
 
             {currentStepIndex === steps.length - 1 ? (
               <button onClick={handleComplete} className="btn-primary">
-                Complete Setup
+                {isReturningUser ? "Save & Continue" : "Complete Setup"}
                 <Check className="w-5 h-5 ml-2" />
               </button>
             ) : (
@@ -836,10 +1319,62 @@ export default function SetupPage() {
                   Recover Existing Data
                 </h3>
                 <p className="text-navy-600 mb-6">
-                  To restore your data, you&apos;ll need to connect your Google
-                  account and enter your encryption key.
+                  Restore your data from a local backup file or connect Google
+                  Drive.
                 </p>
+
+                {/* Local Backup Restore */}
+                <div className="space-y-4 mb-6">
+                  <div className="p-4 rounded-xl bg-cream-50 border border-cream-200">
+                    <h4 className="font-medium text-navy-800 mb-2 flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-saffron-500" />
+                      Local Backup
+                    </h4>
+                    <p className="text-sm text-navy-600 mb-3">
+                      Upload a .json backup file exported from Settings.
+                    </p>
+                    <input
+                      ref={restoreInputRef}
+                      type="file"
+                      accept=".json"
+                      onChange={handleRestoreFromFile}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => restoreInputRef.current?.click()}
+                      disabled={isRestoring}
+                      className="w-full px-4 py-2 rounded-lg bg-saffron-500 text-white font-medium hover:bg-saffron-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isRestoring ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Restoring...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          Choose Backup File
+                        </>
+                      )}
+                    </button>
+                    {restoreError && (
+                      <p className="text-sm text-red-600 mt-2">
+                        {restoreError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Google Drive Option */}
                 <div className="space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-cream-200" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-3 bg-white text-navy-400">or</span>
+                    </div>
+                  </div>
                   <button className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border-2 border-cream-200 hover:border-saffron-300 hover:bg-cream-50 transition-all font-medium text-navy-700">
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path

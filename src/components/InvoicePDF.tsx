@@ -13,6 +13,8 @@ export interface InvoicePDFProps {
   entries: DutyEntry[];
   totals: {
     totalDays: number;
+    totalKms: number;
+    totalTime: number;
     totalExtraKms: number;
     totalExtraHours: number;
     totalTollParking: number;
@@ -28,8 +30,14 @@ export interface InvoicePDFProps {
   };
   timeFormat: "12hr" | "24hr";
   onDownload?: () => void;
+  onBeforeDownload?: () => boolean; // Return false to cancel download
+  triggerDownload?: boolean; // Set to true to trigger download programmatically
+  onTriggerDownloadComplete?: () => void; // Called after triggered download completes
   iconOnly?: boolean;
   fullWidthMobile?: boolean;
+  // Assets for PDF
+  logoBase64?: string;
+  signatureBase64?: string;
 }
 
 // Dynamic import for PDFDownloadLink to avoid SSR issues
@@ -43,7 +51,7 @@ const PDFDownloadLinkClient = dynamic(
         Loading...
       </button>
     ),
-  }
+  },
 );
 
 // Download Button Component
