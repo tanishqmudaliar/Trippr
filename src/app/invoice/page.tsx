@@ -14,27 +14,24 @@ import {
   Filter,
   X,
   AlertCircle,
-  Clock,
-  MapPin,
-  Hash,
   Plus,
   Edit3,
   Trash2,
   Save,
-  Ban,
 } from "lucide-react";
 import {
   formatDate,
   formatCurrency,
   calculateInvoiceTotals,
   numberToWords,
-  decimalToTime,
-  formatDuration,
   getEntryDayCount,
+  formatDuration,
+  decimalToTime,
 } from "@/lib/types";
 import type { DutyEntry, Client, CompanyInfo } from "@/lib/types";
 import { InvoicePDFDownload } from "@/components/InvoicePDF";
 import { getAssetWithFallback } from "@/lib/assetStorage";
+import DutyEntryCard from "@/components/DutyEntryCard";
 
 type TabType = "create" | "edit";
 
@@ -1215,263 +1212,22 @@ function EntrySelectionCard({
           <p className="text-navy-500">No entries found for this client</p>
         </div>
       ) : (
-        <>
-          {/* Desktop View */}
-          <div className="hidden lg:block max-h-96 overflow-y-auto">
-            {entries.map((entry, index) => {
-              const entryDays = getEntryDayCount(entry);
-              const isMultiDay = entryDays > 1;
-              const isSelected = selectedEntries.includes(entry.id);
-              const isCancelled = entry.cancelled === true;
-              const totalCharges =
-                entry.tollParking +
-                (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
-                  0);
-
-              return (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.02 }}
-                  onClick={() => toggleEntry(entry.id)}
-                  className={`p-4 border-b border-cream-100 cursor-pointer transition-all overflow-hidden ${
-                    isSelected
-                      ? "bg-saffron-50 hover:bg-saffron-100"
-                      : "hover:bg-cream-50"
-                  }`}
-                >
-                  {/* Row 1: Checkbox, Date, Duty ID, Cancelled badge */}
-                  <div className="flex items-center gap-4 mb-2">
-                    <div className="shrink-0">
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5 text-saffron-500" />
-                      ) : (
-                        <Square className="w-5 h-5 text-navy-300" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="font-medium text-navy-900">
-                        {isMultiDay ? (
-                          <>
-                            <span className="text-xs text-saffron-600 font-medium mr-2">
-                              {entryDays} days
-                            </span>
-                            <span className="text-sm">
-                              {formatDate(entry.date)}
-                              <span className="text-navy-400 mx-1">→</span>
-                              {formatDate(entry.endDate!)}
-                            </span>
-                          </>
-                        ) : (
-                          formatDate(entry.date)
-                        )}
-                      </div>
-                      <span className="text-navy-400">•</span>
-                      <span className="text-sm text-navy-500 font-mono">
-                        #{entry.dutyId}
-                      </span>
-                      {isCancelled && (
-                        <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
-                          <Ban className="w-3 h-3" />
-                          Cancelled
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 2: Stats */}
-                  {!isCancelled && (
-                    <div className="flex items-center gap-4 ml-9 flex-wrap">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="w-3 h-3 text-navy-400" />
-                        <span className="text-navy-600">
-                          {decimalToTime(entry.timeIn, "12hr")} -{" "}
-                          {decimalToTime(entry.timeOut, "12hr")}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm">
-                        <MapPin className="w-3 h-3 text-navy-400" />
-                        <span className="font-mono font-semibold text-navy-800">
-                          {entry.totalKms} km
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="w-3 h-3 text-navy-400" />
-                        <span className="font-mono font-semibold text-navy-800">
-                          {formatDuration(entry.totalTime)}
-                        </span>
-                      </div>
-                      {entry.extraKms > 0 && (
-                        <span className="badge badge-saffron text-xs">
-                          +{entry.extraKms} km
-                        </span>
-                      )}
-                      {entry.extraTime > 0 && (
-                        <span className="badge badge-saffron text-xs">
-                          +{formatDuration(entry.extraTime)}
-                        </span>
-                      )}
-                      {totalCharges > 0 && (
-                        <span className="badge badge-navy text-xs">
-                          {formatCurrency(totalCharges)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Row 3: Remarks (if any) */}
-                  {entry.remark && (
-                    <div className="ml-9 mt-2 text-xs text-navy-500 italic truncate">
-                      {entry.remark}
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Mobile View */}
-          <div className="lg:hidden max-h-96 overflow-y-auto p-3 space-y-3">
-            {entries.map((entry, index) => {
-              const entryDays = getEntryDayCount(entry);
-              const isMultiDay = entryDays > 1;
-              const isSelected = selectedEntries.includes(entry.id);
-              const isCancelled = entry.cancelled === true;
-              const totalCharges =
-                entry.tollParking +
-                (entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) ||
-                  0);
-
-              return (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
-                  onClick={() => toggleEntry(entry.id)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    isSelected
-                      ? "border-saffron-400 bg-saffron-50 shadow-md"
-                      : "border-cream-200 bg-white hover:border-saffron-200"
-                  }`}
-                >
-                  {/* Header with checkbox and date */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="mt-0.5 shrink-0">
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5 text-saffron-500" />
-                      ) : (
-                        <Square className="w-5 h-5 text-navy-300" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-saffron-500 shrink-0" />
-                          {isMultiDay ? (
-                            <div>
-                              <span className="text-xs text-saffron-600 font-medium mr-2">
-                                {entryDays} days
-                              </span>
-                              <span className="font-semibold text-navy-900 text-sm">
-                                {formatDate(entry.date)} →{" "}
-                                {formatDate(entry.endDate!)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="font-semibold text-navy-900">
-                              {formatDate(entry.date)}
-                            </span>
-                          )}
-                        </div>
-                        {isCancelled && (
-                          <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1 shrink-0">
-                            <Ban className="w-3 h-3" />
-                            Cancelled
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Hash className="w-4 h-4 text-navy-400" />
-                        <span className="font-mono text-navy-600">
-                          {entry.dutyId}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stats grid */}
-                  {!isCancelled && (
-                    <>
-                      <div className="grid grid-cols-2 gap-3 ml-8 mb-3">
-                        <div className="bg-cream-50 rounded-xl p-3">
-                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                            <Clock className="w-3 h-3" />
-                            Time
-                          </div>
-                          <div className="font-mono font-bold text-navy-900 text-sm">
-                            {decimalToTime(entry.timeIn, "12hr")} -{" "}
-                            {decimalToTime(entry.timeOut, "12hr")}
-                          </div>
-                        </div>
-                        <div className="bg-cream-50 rounded-xl p-3">
-                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                            <Clock className="w-3 h-3" />
-                            Duration
-                          </div>
-                          <div className="font-mono font-bold text-navy-900 text-sm">
-                            {formatDuration(entry.totalTime)}
-                          </div>
-                        </div>
-                        <div className="bg-cream-50 rounded-xl p-3">
-                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                            <MapPin className="w-3 h-3" />
-                            Kilometers
-                          </div>
-                          <div className="font-mono font-bold text-navy-900 text-sm">
-                            {entry.totalKms} km
-                          </div>
-                        </div>
-                        <div className="bg-cream-50 rounded-xl p-3">
-                          <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                            Charges
-                          </div>
-                          <div className="font-mono font-bold text-navy-900 text-sm">
-                            {formatCurrency(totalCharges)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Badges */}
-                      {(entry.extraKms > 0 || entry.extraTime > 0) && (
-                        <div className="flex flex-wrap gap-2 ml-8 mb-3">
-                          {entry.extraKms > 0 && (
-                            <span className="badge badge-saffron text-xs">
-                              +{entry.extraKms} km
-                            </span>
-                          )}
-                          {entry.extraTime > 0 && (
-                            <span className="badge badge-saffron text-xs">
-                              +{formatDuration(entry.extraTime)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Remarks */}
-                  {entry.remark && (
-                    <div className="ml-8 text-xs text-navy-500 italic truncate">
-                      {entry.remark}
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        </>
+        <div className="max-h-96 overflow-y-auto p-3 space-y-3">
+          {entries.map((entry, index) => (
+            <DutyEntryCard
+              key={entry.id}
+              entry={entry}
+              clientName=""
+              showClient={false}
+              showCheckbox={true}
+              isSelected={selectedEntries.includes(entry.id)}
+              onToggleSelect={() => toggleEntry(entry.id)}
+              animationDelay={index * 0.02}
+              variant="default"
+              timeFormat={timeFormat}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
