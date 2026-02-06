@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
+import { useNotification } from "@/contexts/NotificationContext";
 import {
   FileText,
   Calendar,
@@ -18,6 +19,7 @@ import {
   Edit3,
   Trash2,
   Save,
+  Search,
 } from "lucide-react";
 import {
   formatDate,
@@ -29,6 +31,7 @@ import {
   decimalToTime,
 } from "@/lib/types";
 import type { DutyEntry, Client, CompanyInfo } from "@/lib/types";
+import { createPortal } from "react-dom";
 import { InvoicePDFDownload } from "@/components/InvoicePDF";
 import { getAssetWithFallback } from "@/lib/assetStorage";
 import DutyEntryCard from "@/components/DutyEntryCard";
@@ -126,6 +129,7 @@ export default function InvoicePage() {
 // CREATE INVOICE TAB
 // ============================================
 function CreateInvoiceTab() {
+  const { showNotification } = useNotification();
   const {
     entries,
     clients,
@@ -135,6 +139,7 @@ function CreateInvoiceTab() {
     createInvoice,
     invoices,
     deleteInvoice,
+    updateLastUpdatedTime,
   } = useStore();
 
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
@@ -271,6 +276,7 @@ function CreateInvoiceTab() {
         vehicleNumber,
         selectedEntries,
       );
+      showNotification("Invoice replaced successfully", "success");
     }
     setShowDuplicateModal(false);
     setDuplicateInvoice(null);
@@ -313,6 +319,8 @@ function CreateInvoiceTab() {
       vehicleNumber,
       selectedEntries,
     );
+    updateLastUpdatedTime();
+    showNotification("Invoice created and downloaded successfully", "success");
   };
 
   const handleSaveInvoice = () => {
@@ -337,6 +345,8 @@ function CreateInvoiceTab() {
       vehicleNumber,
       selectedEntries,
     );
+    updateLastUpdatedTime();
+    showNotification("Invoice saved successfully", "success");
   };
 
   const canGenerateInvoice =
@@ -463,74 +473,77 @@ function CreateInvoiceTab() {
       />
 
       {/* Duplicate Invoice Number Modal */}
-      <AnimatePresence>
-        {showDuplicateModal && duplicateInvoice && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => {
-              setShowDuplicateModal(false);
-              setDuplicateInvoice(null);
-            }}
-          >
+      {showDuplicateModal &&
+        duplicateInvoice &&
+        createPortal(
+          <AnimatePresence>
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => {
+                setShowDuplicateModal(false);
+                setDuplicateInvoice(null);
+              }}
             >
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                  <AlertCircle className="w-6 h-6 text-amber-500" />
-                </div>
-                <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
-                  Invoice Number Already Exists
-                </h3>
-                <p className="text-navy-600 mb-4">
-                  An invoice with number{" "}
-                  <span className="font-mono font-semibold text-saffron-600">
-                    {duplicateInvoice.invoiceNumber}
-                  </span>{" "}
-                  already exists.
-                </p>
-                <div className="bg-cream-50 rounded-lg p-3 text-left text-sm">
-                  <p className="text-navy-500">Existing Invoice:</p>
-                  <p className="font-medium text-navy-800">
-                    {formatDate(duplicateInvoice.invoiceDate)} -{" "}
-                    {clients.find((c) => c.id === duplicateInvoice.clientId)
-                      ?.name || "Unknown Client"}
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
+                    Invoice Number Already Exists
+                  </h3>
+                  <p className="text-navy-600 mb-4">
+                    An invoice with number{" "}
+                    <span className="font-mono font-semibold text-saffron-600">
+                      {duplicateInvoice.invoiceNumber}
+                    </span>{" "}
+                    already exists.
                   </p>
-                  <p className="text-navy-600">
-                    {duplicateInvoice.entryIds.length} entries |{" "}
-                    {formatCurrency(duplicateInvoice.roundedTotal)}
-                  </p>
+                  <div className="bg-cream-50 rounded-lg p-3 text-left text-sm">
+                    <p className="text-navy-500">Existing Invoice:</p>
+                    <p className="font-medium text-navy-800">
+                      {formatDate(duplicateInvoice.invoiceDate)} -{" "}
+                      {clients.find((c) => c.id === duplicateInvoice.clientId)
+                        ?.name || "Unknown Client"}
+                    </p>
+                    <p className="text-navy-600">
+                      {duplicateInvoice.entryIds.length} entries |{" "}
+                      {formatCurrency(duplicateInvoice.roundedTotal)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="p-6 border-t border-cream-200 flex flex-col gap-3">
-                <button
-                  onClick={handleOverwrite}
-                  className="w-full py-2.5 px-6 rounded-xl font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Overwrite Existing Invoice
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDuplicateModal(false);
-                    setDuplicateInvoice(null);
-                  }}
-                  className="btn-secondary w-full"
-                >
-                  Cancel - Edit Invoice Number
-                </button>
-              </div>
+                <div className="p-6 border-t border-cream-200 flex flex-col gap-3">
+                  <button
+                    onClick={handleOverwrite}
+                    className="w-full py-2.5 px-6 rounded-xl font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Overwrite Existing Invoice
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDuplicateModal(false);
+                      setDuplicateInvoice(null);
+                    }}
+                    className="btn-secondary w-full"
+                  >
+                    Cancel - Edit Invoice Number
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </>
   );
 }
@@ -539,6 +552,7 @@ function CreateInvoiceTab() {
 // EDIT INVOICE TAB
 // ============================================
 function EditInvoiceTab() {
+  const { showNotification } = useNotification();
   const {
     invoices,
     entries,
@@ -547,6 +561,7 @@ function EditInvoiceTab() {
     userProfile,
     updateInvoice,
     deleteInvoice,
+    updateLastUpdatedTime,
   } = useStore();
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>("");
@@ -661,11 +676,15 @@ function EditInvoiceTab() {
       vehicleNumberForInvoice: editedVehicleNumber,
       entryIds: editedEntries,
     });
+    updateLastUpdatedTime();
+    showNotification("Invoice updated successfully", "success");
   };
 
   const handleDeleteInvoice = () => {
     if (!deleteTargetId) return;
     deleteInvoice(deleteTargetId);
+    updateLastUpdatedTime();
+    showNotification("Invoice deleted successfully", "success");
     if (selectedInvoiceId === deleteTargetId) {
       setSelectedInvoiceId("");
     }
@@ -895,60 +914,65 @@ function EditInvoiceTab() {
       )}
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => {
-              setShowDeleteConfirm(false);
-              setDeleteTargetId("");
-            }}
-          >
+      {showDeleteConfirm &&
+        createPortal(
+          <AnimatePresence>
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setDeleteTargetId("");
+              }}
             >
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                  <AlertCircle className="w-6 h-6 text-red-500" />
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                  </div>
+                  <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
+                    Delete Invoice?
+                  </h3>
+                  <p className="text-navy-600">
+                    Are you sure you want to delete invoice #
+                    {
+                      invoices.find((i) => i.id === deleteTargetId)
+                        ?.invoiceNumber
+                    }
+                    ? This action cannot be undone.
+                  </p>
                 </div>
-                <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
-                  Delete Invoice?
-                </h3>
-                <p className="text-navy-600">
-                  Are you sure you want to delete invoice #
-                  {invoices.find((i) => i.id === deleteTargetId)?.invoiceNumber}
-                  ? This action cannot be undone.
-                </p>
-              </div>
-              <div className="p-6 border-t border-cream-200 flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeleteTargetId("");
-                  }}
-                  className="btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteInvoice}
-                  className="flex-1 py-2.5 px-6 rounded-xl font-medium text-white bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Confirm Delete
-                </button>
-              </div>
+                <div className="p-6 border-t border-cream-200 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteTargetId("");
+                    }}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteInvoice}
+                    className="flex-1 py-2.5 px-6 rounded-xl font-medium text-white bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Confirm Delete
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </>
   );
 }
@@ -1182,6 +1206,21 @@ function EntrySelectionCard({
   selectedClientId: string;
   timeFormat: "12hr" | "24hr";
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const displayEntries = useMemo(() => {
+    if (!searchQuery.trim()) return entries;
+    const query = searchQuery.toLowerCase().trim();
+    return entries.filter(
+      (e) =>
+        e.dutyId.toLowerCase().includes(query) ||
+        e.date.includes(query) ||
+        (e.endDate && e.endDate.includes(query)) ||
+        (e.remark && e.remark.toLowerCase().includes(query)) ||
+        formatDate(e.date).toLowerCase().includes(query),
+    );
+  }, [entries, searchQuery]);
+
   return (
     <div className="card overflow-hidden">
       <div className="p-4 border-b border-cream-200 flex items-center gap-3">
@@ -1201,6 +1240,31 @@ function EntrySelectionCard({
         </span>
       </div>
 
+      {/* Search Bar - only visible when entries exist */}
+      {selectedClientId && entries.length > 0 && (
+        <div className="px-3 py-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search entries by duty ID, date, remark..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field py-2 text-sm"
+              style={{ paddingLeft: "2.5rem" }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full hover:bg-cream-200 flex items-center justify-center"
+              >
+                <X className="w-3 h-3 text-navy-400" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {!selectedClientId ? (
         <div className="text-center py-12">
           <Building2 className="w-12 h-12 mx-auto mb-4 text-cream-400" />
@@ -1211,9 +1275,17 @@ function EntrySelectionCard({
           <Calendar className="w-12 h-12 mx-auto mb-4 text-cream-400" />
           <p className="text-navy-500">No entries found for this client</p>
         </div>
+      ) : displayEntries.length === 0 ? (
+        <div className="text-center py-8">
+          <Search className="w-10 h-10 mx-auto mb-3 text-cream-400" />
+          <p className="text-navy-500">No matching entries</p>
+          <p className="text-navy-400 text-sm mt-1">
+            Try a different search term
+          </p>
+        </div>
       ) : (
-        <div className="max-h-96 overflow-y-auto p-3 space-y-3">
-          {entries.map((entry, index) => (
+        <div className="max-h-96 overflow-y-auto px-3 pb-3 space-y-3">
+          {displayEntries.map((entry, index) => (
             <DutyEntryCard
               key={entry.id}
               entry={entry}
@@ -1379,7 +1451,7 @@ function PreviewModal({
 }) {
   if (!show || !totals || !client) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -1420,7 +1492,8 @@ function PreviewModal({
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

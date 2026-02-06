@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
+import { useNotification } from "@/contexts/NotificationContext";
 import {
   Plus,
   Trash2,
@@ -22,6 +23,10 @@ import {
   Hash,
   MessageSquare,
   Ban,
+  Search,
+  Download,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   formatDate,
@@ -194,8 +199,16 @@ function TimeInput12HourCompact({
 }
 
 export default function EntriesPage() {
-  const { entries, clients, addEntry, updateEntry, deleteEntry, userProfile } =
-    useStore();
+  const { showNotification } = useNotification();
+  const {
+    entries,
+    clients,
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    userProfile,
+    updateLastUpdatedTime,
+  } = useStore();
   const [entryMode, setEntryMode] = useState<EntryMode>("select");
   const [dateMode, setDateMode] = useState<DateMode>("single");
   const [multiTimeMode, setMultiTimeMode] =
@@ -205,6 +218,8 @@ export default function EntriesPage() {
   const [filterClientId, setFilterClientId] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Duplicate check modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -233,15 +248,36 @@ export default function EntriesPage() {
       timeIn: string;
       timeOut: string;
       tollParking: number;
+      endDate: string;
+      remark: string;
+      cancelled: boolean;
+      additionalCharges: Array<{ label: string; amount: number }>;
+      multiTimeMode: string;
+      perDayTimes: Array<{ timeIn: number; timeOut: number }>;
+      totalTime: number;
+      clientId: string;
+      clientName: string;
+      hasDuplicate: boolean;
+      existingEntryId: string;
       selected: boolean;
+      validationErrors: string[];
     }>
   >([]);
-  const [uploadClientId, setUploadClientId] = useState<string>(
-    clients[0]?.id || "",
+  const [editingUploadIndex, setEditingUploadIndex] = useState<number | null>(
+    null,
   );
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [showImportConflictModal, setShowImportConflictModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleClick = () => setShowExportMenu(false);
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [showExportMenu]);
 
   const timeFormat = userProfile?.timeFormat || "12hr";
 
@@ -405,6 +441,8 @@ export default function EntriesPage() {
     if (duplicateEntry && pendingEntryData) {
       deleteEntry(duplicateEntry.id);
       addEntry(pendingEntryData);
+      updateLastUpdatedTime();
+      showNotification("Entry replaced successfully", "success");
       resetForm();
       setFormErrors([]);
       setShowForm(false);
@@ -501,6 +539,8 @@ export default function EntriesPage() {
         return;
       }
       addEntry(entryData);
+      updateLastUpdatedTime();
+      showNotification("Entry added successfully", "success");
     } else {
       // Update existing entry
       let overrideTotalTime: number | undefined;
@@ -543,6 +583,8 @@ export default function EntriesPage() {
         perDayTimes: savedPerDayTimes,
       };
       updateEntry(editingId, updateData);
+      updateLastUpdatedTime();
+      showNotification("Entry updated successfully", "success");
     }
 
     resetForm();
@@ -651,15 +693,17 @@ export default function EntriesPage() {
       if (extension === "csv" || extension === "xlsx" || extension === "xls") {
         await parseSpreadsheet(file);
       } else {
-        setParseError(
+        showNotification(
           "Unsupported file format. Please use Excel (.xlsx, .xls) or CSV files.",
+          "error",
         );
       }
     } catch (err) {
-      setParseError(
+      showNotification(
         `Error parsing file: ${
           err instanceof Error ? err.message : "Unknown error"
         }`,
+        "error",
       );
     } finally {
       setIsParsingFile(false);
@@ -667,6 +711,48 @@ export default function EntriesPage() {
         fileInputRef.current.value = "";
       }
     }
+  };
+
+  // Helper to parse time values from imported spreadsheets
+  // Excel stores time as a decimal fraction of 24 hours (e.g., 0.375 = 9:00 AM, 0.75 = 6:00 PM)
+  const parseImportTime = (value: unknown, fallback: string): string => {
+    if (value === null || value === undefined || value === "") return fallback;
+
+    if (typeof value === "number") {
+      // Excel serial time: decimal between 0 and 1 representing fraction of day
+      if (value >= 0 && value < 1) {
+        const totalMinutes = Math.round(value * 24 * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+      }
+      // Could be hours as a number (e.g., 9 for 9:00)
+      if (value >= 0 && value <= 24) {
+        const hours = Math.floor(value);
+        const minutes = Math.round((value - hours) * 60);
+        return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+      }
+      return fallback;
+    }
+
+    const str = String(value).trim();
+    if (!str) return fallback;
+
+    // Already in HH:MM or H:MM format
+    if (/^\d{1,2}:\d{2}$/.test(str)) return str;
+
+    // 12-hour format: "9:00 AM", "6:30 PM"
+    const match12 = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match12) {
+      let hours = parseInt(match12[1], 10);
+      const minutes = match12[2];
+      const period = match12[3].toUpperCase();
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+      return `${hours.toString().padStart(2, "0")}:${minutes}`;
+    }
+
+    return str || fallback;
   };
 
   const parseSpreadsheet = async (file: File) => {
@@ -677,7 +763,7 @@ export default function EntriesPage() {
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
 
     if (data.length < 2) {
-      setParseError("File appears to be empty or has no data rows");
+      showNotification("File appears to be empty or has no data rows", "error");
       return;
     }
 
@@ -686,16 +772,43 @@ export default function EntriesPage() {
       String(h).toLowerCase().trim(),
     );
 
-    const dateIdx = headers.findIndex((h) => h.includes("date"));
+    const dateIdx = headers.findIndex(
+      (h) => h.includes("date") && !h.includes("end"),
+    );
     const dutyIdIdx = headers.findIndex(
-      (h) => h.includes("duty") || h.includes("id"),
+      (h) => h.includes("duty") || (h.includes("id") && !h.includes("client")),
     );
+    const clientIdx = headers.findIndex((h) => h.includes("client"));
     const startKmsIdx = headers.findIndex(
-      (h) => h.includes("start") && h.includes("km"),
+      (h) =>
+        (h.includes("start") || h.includes("open") || h.includes("begin")) &&
+        (h.includes("km") || h.includes("kilo") || h.includes("odo")),
     );
-    const closeKmsIdx = headers.findIndex(
-      (h) => (h.includes("close") || h.includes("end")) && h.includes("km"),
+    let closeKmsIdx = headers.findIndex(
+      (h) =>
+        (h.includes("clos") ||
+          h.includes("end") ||
+          h.includes("final") ||
+          h.includes("finish")) &&
+        !h.includes("date") &&
+        (h.includes("km") || h.includes("kilo") || h.includes("odo")),
     );
+    // Fallback: if closing KMs not found but starting KMs found, look for next KM-like column
+    if (closeKmsIdx === -1 && startKmsIdx >= 0) {
+      for (let i = startKmsIdx + 1; i < headers.length; i++) {
+        if (
+          headers[i].includes("km") ||
+          headers[i].includes("kilo") ||
+          headers[i].includes("odo")
+        ) {
+          // Skip "total" KMs column
+          if (!headers[i].includes("total")) {
+            closeKmsIdx = i;
+            break;
+          }
+        }
+      }
+    }
     const timeInIdx = headers.findIndex(
       (h) => h.includes("time") && (h.includes("in") || h.includes("start")),
     );
@@ -704,6 +817,26 @@ export default function EntriesPage() {
     );
     const tollIdx = headers.findIndex(
       (h) => h.includes("toll") || h.includes("parking"),
+    );
+    const endDateIdx = headers.findIndex(
+      (h) => h.includes("end") && h.includes("date"),
+    );
+    const remarkIdx = headers.findIndex(
+      (h) =>
+        h.includes("remark") || h.includes("note") || h.includes("comment"),
+    );
+    const cancelledIdx = headers.findIndex((h) => h.includes("cancel"));
+    const additionalChargesIdx = headers.findIndex(
+      (h) => h.includes("additional") && h.includes("charge"),
+    );
+    const multiTimeModeIdx = headers.findIndex(
+      (h) => h.includes("multi") && h.includes("time") && h.includes("mode"),
+    );
+    const perDayTimesIdx = headers.findIndex(
+      (h) => h.includes("per") && h.includes("day") && h.includes("time"),
+    );
+    const totalTimeIdx = headers.findIndex(
+      (h) => h.includes("total") && h.includes("time"),
     );
 
     const parsedEntries = [];
@@ -732,26 +865,124 @@ export default function EntriesPage() {
 
       if (!parsedDate) continue;
 
+      // Resolve client from file
+      const clientNameFromFile =
+        clientIdx >= 0 ? String(row[clientIdx] || "").trim() : "";
+      const matchedClient = clients.find(
+        (c) => c.name.toLowerCase() === clientNameFromFile.toLowerCase(),
+      );
+      const resolvedClientId = matchedClient?.id || "";
+
+      // Get duty ID
+      const dutyId =
+        dutyIdIdx >= 0
+          ? String(row[dutyIdIdx] || generateDutyId())
+          : generateDutyId();
+
+      // Check for existing entry with same duty ID
+      const existingEntry = entries.find((e) => e.dutyId === dutyId);
+
       parsedEntries.push({
         date: parsedDate,
-        dutyId:
-          dutyIdIdx >= 0
-            ? String(row[dutyIdIdx] || generateDutyId())
-            : generateDutyId(),
+        dutyId,
         startingKms:
-          startKmsIdx >= 0 ? parseInt(String(row[startKmsIdx])) || 0 : 0,
+          startKmsIdx >= 0 ? Math.floor(Number(row[startKmsIdx])) || 0 : 0,
         closingKms:
-          closeKmsIdx >= 0 ? parseInt(String(row[closeKmsIdx])) || 0 : 0,
-        timeIn: timeInIdx >= 0 ? String(row[timeInIdx] || "08:00") : "08:00",
-        timeOut: timeOutIdx >= 0 ? String(row[timeOutIdx] || "17:00") : "17:00",
+          closeKmsIdx >= 0 ? Math.floor(Number(row[closeKmsIdx])) || 0 : 0,
+        timeIn:
+          timeInIdx >= 0 ? parseImportTime(row[timeInIdx], "08:00") : "08:00",
+        timeOut:
+          timeOutIdx >= 0 ? parseImportTime(row[timeOutIdx], "17:00") : "17:00",
         tollParking: tollIdx >= 0 ? parseFloat(String(row[tollIdx])) || 0 : 0,
+        endDate: (() => {
+          if (endDateIdx < 0 || !row[endDateIdx]) return "";
+          const val = row[endDateIdx];
+          if (typeof val === "number") {
+            const excelEpoch = new Date(1899, 11, 30);
+            const d = new Date(excelEpoch.getTime() + val * 86400000);
+            return d.toISOString().split("T")[0];
+          }
+          const str = String(val).trim();
+          if (!str) return "";
+          const parsed = new Date(str);
+          return !isNaN(parsed.getTime())
+            ? parsed.toISOString().split("T")[0]
+            : "";
+        })(),
+        remark: remarkIdx >= 0 ? String(row[remarkIdx] || "").trim() : "",
+        cancelled:
+          cancelledIdx >= 0
+            ? String(row[cancelledIdx]).toLowerCase().trim() === "yes"
+            : false,
+        additionalCharges: (() => {
+          if (additionalChargesIdx < 0 || !row[additionalChargesIdx]) return [];
+          try {
+            const parsed = JSON.parse(String(row[additionalChargesIdx]));
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })(),
+        multiTimeMode: (() => {
+          if (multiTimeModeIdx < 0 || !row[multiTimeModeIdx]) return "";
+          const val = String(row[multiTimeModeIdx]).trim();
+          return ["sameDaily", "totalHours", "perDay"].includes(val) ? val : "";
+        })(),
+        perDayTimes: (() => {
+          if (perDayTimesIdx < 0 || !row[perDayTimesIdx]) return [];
+          try {
+            const parsed = JSON.parse(String(row[perDayTimesIdx]));
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })(),
+        totalTime:
+          totalTimeIdx >= 0 ? parseFloat(String(row[totalTimeIdx])) || 0 : 0,
+        clientId: resolvedClientId,
+        clientName: clientNameFromFile,
+        hasDuplicate: !!existingEntry,
+        existingEntryId: existingEntry?.id || "",
         selected: true,
+        validationErrors: [] as string[],
       });
     }
 
+    // Validate each entry and populate errors
+    parsedEntries.forEach((entry) => {
+      const errors: string[] = [];
+
+      // Client validation
+      if (!entry.clientId) {
+        if (entry.clientName) {
+          errors.push(`Client "${entry.clientName}" not found`);
+        } else {
+          errors.push("No client specified");
+        }
+      }
+
+      // KM validation (skip if cancelled or if KMs couldn't be parsed)
+      if (!entry.cancelled) {
+        // Only validate if both KMs have meaningful values (not both 0)
+        if (entry.startingKms > 0 || entry.closingKms > 0) {
+          if (entry.closingKms <= entry.startingKms) {
+            errors.push("Closing KMs must be greater than Starting KMs");
+          }
+        }
+      }
+
+      // Date validation
+      if (!entry.date) {
+        errors.push("Invalid date");
+      }
+
+      entry.validationErrors = errors;
+    });
+
     if (parsedEntries.length === 0) {
-      setParseError(
+      showNotification(
         "No valid entries found in the file. Please check the format.",
+        "error",
       );
       return;
     }
@@ -759,12 +990,30 @@ export default function EntriesPage() {
     setUploadedEntries(parsedEntries);
   };
 
-  const handleConfirmUpload = () => {
+  const handleConfirmUpload = (conflictAction: "overwrite" | "skip") => {
     const selectedEntries = uploadedEntries.filter((e) => e.selected);
+    let importedCount = 0;
+    let skippedCount = 0;
 
     selectedEntries.forEach((entry) => {
+      // Skip entries with validation errors
+      if (entry.validationErrors.length > 0) {
+        skippedCount++;
+        return;
+      }
+
+      // Handle duplicates
+      if (entry.hasDuplicate && entry.existingEntryId) {
+        if (conflictAction === "skip") {
+          skippedCount++;
+          return;
+        }
+        // Overwrite: delete existing entry first
+        deleteEntry(entry.existingEntryId);
+      }
+
       addEntry({
-        clientId: uploadClientId,
+        clientId: entry.clientId,
         date: entry.date,
         dutyId: entry.dutyId,
         startingKms: entry.startingKms,
@@ -772,11 +1021,121 @@ export default function EntriesPage() {
         timeIn: timeToDecimal(entry.timeIn),
         timeOut: timeToDecimal(entry.timeOut),
         tollParking: entry.tollParking,
+        ...(entry.endDate ? { endDate: entry.endDate } : {}),
+        ...(entry.remark ? { remark: entry.remark } : {}),
+        ...(entry.cancelled ? { cancelled: true } : {}),
+        ...(entry.additionalCharges.length > 0
+          ? { additionalCharges: entry.additionalCharges }
+          : {}),
+        ...(entry.multiTimeMode
+          ? {
+              multiTimeMode: entry.multiTimeMode as
+                | "sameDaily"
+                | "totalHours"
+                | "perDay",
+            }
+          : {}),
+        ...(entry.perDayTimes.length > 0
+          ? { perDayTimes: entry.perDayTimes }
+          : {}),
+        ...(entry.multiTimeMode === "totalHours" && entry.totalTime > 0
+          ? { overrideTotalTime: entry.totalTime }
+          : {}),
       });
+      importedCount++;
     });
 
+    // Update last updated time if any entries were imported
+    if (importedCount > 0) {
+      updateLastUpdatedTime();
+    }
+
+    const messages: string[] = [];
+    if (importedCount > 0) {
+      messages.push(
+        `${importedCount} ${importedCount === 1 ? "entry" : "entries"} imported`,
+      );
+    }
+    if (skippedCount > 0) {
+      messages.push(`${skippedCount} skipped`);
+    }
+
+    showNotification(
+      messages.join(", ") || "No entries imported",
+      importedCount > 0 ? "success" : "error",
+    );
     setUploadedEntries([]);
     setEntryMode("select");
+    setShowImportConflictModal(false);
+    setEditingUploadIndex(null);
+  };
+
+  // Check if any selected entries have duplicates
+  const hasImportDuplicates = useMemo(() => {
+    return uploadedEntries.some((e) => e.selected && e.hasDuplicate);
+  }, [uploadedEntries]);
+
+  // Check if any selected entries have validation errors
+  const hasValidationErrors = useMemo(() => {
+    return uploadedEntries.some(
+      (e) => e.selected && e.validationErrors.length > 0,
+    );
+  }, [uploadedEntries]);
+
+  // Count entries with issues (for display)
+  const entriesWithIssues = useMemo(() => {
+    return uploadedEntries.filter(
+      (e) => e.selected && e.validationErrors.length > 0,
+    ).length;
+  }, [uploadedEntries]);
+
+  // Update an uploaded entry (for inline editing)
+  const updateUploadedEntry = (
+    index: number,
+    updates: Partial<(typeof uploadedEntries)[0]>,
+  ) => {
+    setUploadedEntries((prev) =>
+      prev.map((e, i) => {
+        if (i !== index) return e;
+        const updated = { ...e, ...updates };
+
+        // Re-validate after update
+        const errors: string[] = [];
+        if (!updated.clientId) {
+          if (updated.clientName) {
+            errors.push(`Client "${updated.clientName}" not found`);
+          } else {
+            errors.push("No client specified");
+          }
+        }
+        if (!updated.cancelled && updated.closingKms <= updated.startingKms) {
+          errors.push("Closing KMs must be greater than Starting KMs");
+        }
+        if (!updated.date) {
+          errors.push("Invalid date");
+        }
+        updated.validationErrors = errors;
+
+        return updated;
+      }),
+    );
+  };
+
+  // Initiate import - check for validation errors first
+  const initiateImport = () => {
+    // If there are entries with validation errors, don't allow import
+    if (hasValidationErrors) {
+      showNotification(
+        "Please fix or deselect entries with errors before importing",
+        "error",
+      );
+      return;
+    }
+    if (hasImportDuplicates) {
+      setShowImportConflictModal(true);
+    } else {
+      handleConfirmUpload("skip"); // No duplicates, just import
+    }
   };
 
   const toggleEntrySelection = (index: number) => {
@@ -791,10 +1150,88 @@ export default function EntriesPage() {
     if (filterClientId) {
       result = result.filter((e) => e.clientId === filterClientId);
     }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter((e) => {
+        const clientName = getClientName(e.clientId).toLowerCase();
+        return (
+          e.dutyId.toLowerCase().includes(query) ||
+          e.date.includes(query) ||
+          (e.endDate && e.endDate.includes(query)) ||
+          clientName.includes(query) ||
+          (e.remark && e.remark.toLowerCase().includes(query)) ||
+          formatDate(e.date).toLowerCase().includes(query)
+        );
+      });
+    }
     return result.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
-  }, [entries, filterClientId]);
+  }, [entries, filterClientId, searchQuery]);
+
+  // Download entries
+  const handleDownloadEntries = (format: "xlsx" | "csv") => {
+    const entriesToExport = filteredEntries;
+    if (entriesToExport.length === 0) return;
+
+    const headers = [
+      "Date",
+      "End Date",
+      "Duty ID",
+      "Client",
+      "Starting KMs",
+      "Closing KMs",
+      "Total KMs",
+      "Time In",
+      "Time Out",
+      "Total Time (hrs)",
+      "Extra KMs",
+      "Extra Time (hrs)",
+      "Toll/Parking",
+      "Additional Charges",
+      "Remark",
+      "Cancelled",
+      "Multi Time Mode",
+      "Per Day Times",
+    ];
+    const rows = entriesToExport.map((e) => [
+      e.date,
+      e.endDate || "",
+      e.dutyId,
+      getClientName(e.clientId),
+      e.startingKms,
+      e.closingKms,
+      e.totalKms,
+      decimalToTime(e.timeIn, "24hr"),
+      decimalToTime(e.timeOut, "24hr"),
+      e.totalTime,
+      e.extraKms,
+      e.extraTime,
+      e.tollParking,
+      e.additionalCharges && e.additionalCharges.length > 0
+        ? JSON.stringify(e.additionalCharges)
+        : "",
+      e.remark || "",
+      e.cancelled ? "Yes" : "No",
+      e.multiTimeMode || "",
+      e.perDayTimes && e.perDayTimes.length > 0
+        ? JSON.stringify(e.perDayTimes)
+        : "",
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Entries");
+    const fileName = `trippr-entries-${new Date().toISOString().split("T")[0]}`;
+
+    if (format === "csv") {
+      XLSX.writeFile(wb, `${fileName}.csv`, { bookType: "csv" });
+      showNotification("Entries exported as CSV", "success");
+    } else {
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
+      showNotification("Entries exported as Excel", "success");
+    }
+  };
 
   // Get client name helper
   const getClientName = (clientId: string) => {
@@ -866,65 +1303,190 @@ export default function EntriesPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6 lg:space-y-8 pb-8"
-    >
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl lg:text-4xl font-bold text-navy-900 mb-2">
-            Duty Entries
-          </h1>
-          <p className="text-navy-500 text-sm lg:text-lg">
-            Record and manage your daily duty logs
-          </p>
-        </div>
-        <motion.button
-          onClick={() => {
-            resetForm();
-            setEntryMode("select");
-            setShowForm(true);
-          }}
-          className="btn-primary"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Plus className="w-5 h-5" />
-          Add New Entry
-        </motion.button>
-      </div>
-
-      {/* Filter by Client */}
-      {clients.length > 1 && (
-        <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-saffron-500" />
-            <span className="font-medium text-navy-700">Filter by Client:</span>
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6 lg:space-y-8 pb-8"
+      >
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl lg:text-4xl font-bold text-navy-900 mb-2">
+              Duty Entries
+            </h1>
+            <p className="text-navy-500 text-sm lg:text-lg">
+              Record and manage your daily duty logs
+            </p>
           </div>
-          <select
-            value={filterClientId}
-            onChange={(e) => setFilterClientId(e.target.value)}
-            className="input-field w-auto py-2"
+          <motion.button
+            onClick={() => {
+              resetForm();
+              setEntryMode("select");
+              setShowForm(true);
+            }}
+            className="btn-primary"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <option value="">All Clients</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </select>
-          {filterClientId && (
-            <button
-              onClick={() => setFilterClientId("")}
-              className="text-sm text-saffron-600 hover:text-saffron-700 font-medium"
+            <Plus className="w-5 h-5" />
+            Add New Entry
+          </motion.button>
+        </div>
+
+        {/* Filter by Client */}
+        {clients.length > 1 && (
+          <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-saffron-500" />
+              <span className="font-medium text-navy-700">
+                Filter by Client:
+              </span>
+            </div>
+            <select
+              value={filterClientId}
+              onChange={(e) => setFilterClientId(e.target.value)}
+              className="input-field w-auto py-2"
             >
-              Clear Filter
-            </button>
+              <option value="">All Clients</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            {filterClientId && (
+              <button
+                onClick={() => setFilterClientId("")}
+                className="text-sm text-saffron-600 hover:text-saffron-700 font-medium"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Search & Download Bar */}
+        {entries.length > 0 && (
+          <div className="flex flex-row gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by duty ID, date, client, remark..."
+                className="input-field w-full"
+                style={{ paddingLeft: "2.5rem" }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full hover:bg-cream-200 flex items-center justify-center"
+                >
+                  <X className="w-3 h-3 text-navy-400" />
+                </button>
+              )}
+            </div>
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="btn-secondary flex items-center gap-2 whitespace-nowrap h-full"
+                title="Export entries"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+              <AnimatePresence>
+                {showExportMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-lg border border-cream-200 overflow-hidden z-30 min-w-40"
+                  >
+                    <button
+                      onClick={() => {
+                        handleDownloadEntries("xlsx");
+                        setShowExportMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-navy-700 hover:bg-cream-50 flex items-center gap-2 transition-colors"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                      Excel (.xlsx)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDownloadEntries("csv");
+                        setShowExportMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-navy-700 hover:bg-cream-50 flex items-center gap-2 transition-colors"
+                    >
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      CSV (.csv)
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        {/* Entries List - Card-based design for better mobile/desktop experience */}
+        <div className="space-y-4">
+          {filteredEntries.length === 0 ? (
+            <div className="card text-center py-12 lg:py-16">
+              <div className="w-16 lg:w-20 h-16 lg:h-20 mx-auto mb-4 lg:mb-6 rounded-full bg-cream-100 flex items-center justify-center">
+                <Calendar className="w-8 lg:w-10 h-8 lg:h-10 text-cream-400" />
+              </div>
+              <h3 className="font-display text-lg lg:text-xl font-semibold text-navy-800 mb-2">
+                {searchQuery
+                  ? "No matching entries"
+                  : filterClientId
+                    ? "No entries for this client"
+                    : "No entries yet"}
+              </h3>
+              <p className="text-navy-500 mb-4 lg:mb-6">
+                {searchQuery
+                  ? "Try a different search term"
+                  : filterClientId
+                    ? "Try a different filter or add new entries"
+                    : "Start by adding your first duty entry"}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="btn-primary"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Entry
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredEntries.map((entry, index) => (
+                <DutyEntryCard
+                  key={entry.id}
+                  entry={entry}
+                  clientName={getClientName(entry.clientId)}
+                  showClient={true}
+                  showActions={true}
+                  showCheckbox={false}
+                  onEdit={() => handleEdit(entry)}
+                  onDelete={() => {
+                    setDeleteTargetId(entry.id);
+                    setShowDeleteConfirm(true);
+                  }}
+                  animationDelay={index * 0.03}
+                  variant="default"
+                  timeFormat={timeFormat}
+                />
+              ))}
+            </div>
           )}
         </div>
-      )}
+      </motion.div>
 
       {/* Entry Mode Selection / Form Modal */}
       <AnimatePresence>
@@ -947,7 +1509,6 @@ export default function EntriesPage() {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Mode Selection */}
               {entryMode === "select" && !editingId && (
                 <>
                   <div className="p-4 lg:p-6 border-b border-cream-200 flex items-center justify-between">
@@ -1050,7 +1611,10 @@ export default function EntriesPage() {
                       <select
                         value={formData.clientId}
                         onChange={(e) =>
-                          setFormData({ ...formData, clientId: e.target.value })
+                          setFormData({
+                            ...formData,
+                            clientId: e.target.value,
+                          })
                         }
                         className="input-field"
                         required
@@ -1173,7 +1737,10 @@ export default function EntriesPage() {
                           type="text"
                           value={formData.dutyId}
                           onChange={(e) =>
-                            setFormData({ ...formData, dutyId: e.target.value })
+                            setFormData({
+                              ...formData,
+                              dutyId: e.target.value,
+                            })
                           }
                           className="input-field font-mono"
                           placeholder="Auto-generated if empty"
@@ -1827,28 +2394,6 @@ export default function EntriesPage() {
                   </div>
 
                   <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-                    {/* Client Selection for Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-navy-700 mb-2">
-                        <Building2 className="w-4 h-4 inline mr-2" />
-                        Client for Imported Entries{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={uploadClientId}
-                        onChange={(e) => setUploadClientId(e.target.value)}
-                        className="input-field"
-                        required
-                      >
-                        <option value="">Select a client</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
                     {/* File Upload Area */}
                     {uploadedEntries.length === 0 && (
                       <div className="border-2 border-dashed border-cream-300 rounded-xl p-8 text-center">
@@ -1915,111 +2460,303 @@ export default function EntriesPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto border border-cream-200 rounded-xl">
-                          <table className="w-full text-sm">
-                            <thead className="bg-cream-50">
-                              <tr>
-                                <th className="p-3 text-left font-medium text-navy-700">
+                        {/* Summary Bar */}
+                        <div className="flex items-center gap-4 text-sm">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={uploadedEntries.every((e) => e.selected)}
+                              onChange={(e) => {
+                                setUploadedEntries((prev) =>
+                                  prev.map((entry) => ({
+                                    ...entry,
+                                    selected: e.target.checked,
+                                  })),
+                                );
+                              }}
+                              className="accent-saffron-500"
+                            />
+                            <span className="text-navy-600">Select All</span>
+                          </label>
+                          {entriesWithIssues > 0 && (
+                            <span className="text-amber-600 flex items-center gap-1">
+                              <AlertCircle className="w-4 h-4" />
+                              {entriesWithIssues} with issues
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Entry Cards */}
+                        <div className="space-y-3 max-h-100 overflow-y-auto">
+                          {uploadedEntries.map((entry, index) => {
+                            const hasErrors = entry.validationErrors.length > 0;
+                            const isEditing = editingUploadIndex === index;
+
+                            return (
+                              <div
+                                key={index}
+                                className={`border rounded-xl overflow-hidden transition-all ${
+                                  !entry.selected
+                                    ? "border-cream-200 bg-cream-50 opacity-60"
+                                    : hasErrors
+                                      ? "border-amber-300 bg-amber-50"
+                                      : entry.hasDuplicate
+                                        ? "border-blue-300 bg-blue-50"
+                                        : "border-cream-200 bg-white"
+                                }`}
+                              >
+                                {/* Entry Header */}
+                                <div className="p-3 flex items-center gap-3">
                                   <input
                                     type="checkbox"
-                                    checked={uploadedEntries.every(
-                                      (e) => e.selected,
-                                    )}
-                                    onChange={(e) => {
-                                      setUploadedEntries((prev) =>
-                                        prev.map((entry) => ({
-                                          ...entry,
-                                          selected: e.target.checked,
-                                        })),
-                                      );
-                                    }}
+                                    checked={entry.selected}
+                                    onChange={() => toggleEntrySelection(index)}
                                     className="accent-saffron-500"
                                   />
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Date
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Duty ID
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Start KMs
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Close KMs
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Time
-                                </th>
-                                <th className="p-3 text-left font-medium text-navy-700">
-                                  Toll
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {uploadedEntries.map((entry, index) => (
-                                <tr
-                                  key={index}
-                                  className={`border-t border-cream-200 ${
-                                    entry.selected
-                                      ? "bg-white"
-                                      : "bg-cream-50 opacity-50"
-                                  }`}
-                                >
-                                  <td className="p-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={entry.selected}
-                                      onChange={() =>
-                                        toggleEntrySelection(index)
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-mono font-medium text-navy-800">
+                                        {entry.dutyId}
+                                      </span>
+                                      <span className="text-navy-500">•</span>
+                                      <span className="text-navy-600">
+                                        {formatDate(entry.date)}
+                                        {entry.endDate &&
+                                          entry.endDate !== entry.date &&
+                                          ` - ${formatDate(entry.endDate)}`}
+                                      </span>
+                                      {entry.hasDuplicate && (
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                          Duplicate
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-navy-500 mt-1">
+                                      <span>
+                                        {entry.clientId
+                                          ? getClientName(entry.clientId)
+                                          : entry.clientName || "No client"}
+                                      </span>
+                                      <span>•</span>
+                                      <span>
+                                        {entry.closingKms - entry.startingKms}{" "}
+                                        km
+                                      </span>
+                                      <span>•</span>
+                                      <span>
+                                        {entry.timeIn} - {entry.timeOut}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Error/Edit Toggle */}
+                                  {hasErrors && entry.selected && (
+                                    <button
+                                      onClick={() =>
+                                        setEditingUploadIndex(
+                                          isEditing ? null : index,
+                                        )
                                       }
-                                      className="accent-saffron-500"
-                                    />
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {formatDate(entry.date)}
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {entry.dutyId}
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {entry.startingKms}
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {entry.closingKms}
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {entry.timeIn} - {entry.timeOut}
-                                  </td>
-                                  <td className="p-3 font-mono">
-                                    {formatCurrency(entry.tollParking)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                                      className="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-medium"
+                                    >
+                                      {isEditing ? (
+                                        <>
+                                          <ChevronUp className="w-4 h-4" />
+                                          Close
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Edit3 className="w-4 h-4" />
+                                          Fix
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Validation Errors */}
+                                {hasErrors && entry.selected && !isEditing && (
+                                  <div className="px-3 pb-3 pt-0">
+                                    <div className="flex flex-wrap gap-2">
+                                      {entry.validationErrors.map((err, i) => (
+                                        <span
+                                          key={i}
+                                          className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full"
+                                        >
+                                          {err}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Inline Edit Form */}
+                                {isEditing && entry.selected && (
+                                  <div className="p-3 border-t border-amber-200 bg-amber-50/50 space-y-3">
+                                    {/* Client Selection */}
+                                    {entry.validationErrors.some((e) =>
+                                      e.toLowerCase().includes("client"),
+                                    ) && (
+                                      <div>
+                                        <label className="block text-sm font-medium text-navy-700 mb-1">
+                                          Select Client
+                                        </label>
+                                        <select
+                                          value={entry.clientId}
+                                          onChange={(e) => {
+                                            const selectedClient = clients.find(
+                                              (c) => c.id === e.target.value,
+                                            );
+                                            updateUploadedEntry(index, {
+                                              clientId: e.target.value,
+                                              clientName:
+                                                selectedClient?.name ||
+                                                entry.clientName,
+                                            });
+                                          }}
+                                          className="input-field w-full"
+                                        >
+                                          <option value="">
+                                            -- Select Client --
+                                          </option>
+                                          {clients.map((client) => (
+                                            <option
+                                              key={client.id}
+                                              value={client.id}
+                                            >
+                                              {client.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {entry.clientName &&
+                                          !entry.clientId && (
+                                            <p className="text-xs text-amber-600 mt-1">
+                                              Original value: &quot;
+                                              {entry.clientName}&quot;
+                                            </p>
+                                          )}
+                                      </div>
+                                    )}
+
+                                    {/* KM Correction */}
+                                    {entry.validationErrors.some((e) =>
+                                      e.toLowerCase().includes("km"),
+                                    ) && (
+                                      <div className="flex gap-3">
+                                        <div className="flex-1">
+                                          <label className="block text-sm font-medium text-navy-700 mb-1">
+                                            Starting KMs
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={entry.startingKms}
+                                            onChange={(e) =>
+                                              updateUploadedEntry(index, {
+                                                startingKms:
+                                                  parseInt(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="input-field w-full font-mono"
+                                          />
+                                        </div>
+                                        <div className="flex-1">
+                                          <label className="block text-sm font-medium text-navy-700 mb-1">
+                                            Closing KMs
+                                          </label>
+                                          <input
+                                            type="number"
+                                            value={entry.closingKms}
+                                            onChange={(e) =>
+                                              updateUploadedEntry(index, {
+                                                closingKms:
+                                                  parseInt(e.target.value) || 0,
+                                              })
+                                            }
+                                            className="input-field w-full font-mono"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Remaining Errors After Edits */}
+                                    {entry.validationErrors.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 pt-2 border-t border-amber-200">
+                                        {entry.validationErrors.map(
+                                          (err, i) => (
+                                            <span
+                                              key={i}
+                                              className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full"
+                                            >
+                                              {err}
+                                            </span>
+                                          ),
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div className="flex justify-end">
+                                      <button
+                                        onClick={() =>
+                                          setEditingUploadIndex(null)
+                                        }
+                                        className="text-sm text-navy-600 hover:text-navy-800"
+                                      >
+                                        Done Editing
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
+
+                        {/* Info Messages */}
+                        {hasImportDuplicates && (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-blue-800 font-medium text-sm">
+                                Duplicate Duty IDs found
+                              </p>
+                              <p className="text-blue-600 text-xs mt-1">
+                                You&apos;ll be asked whether to overwrite or
+                                skip them when importing.
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Confirm & Import Actions */}
                         <div className="flex gap-3 pt-4 border-t border-cream-200">
                           <button
-                            onClick={() => setEntryMode("select")}
+                            onClick={() => {
+                              setEntryMode("select");
+                              setEditingUploadIndex(null);
+                            }}
                             className="btn-secondary flex-1"
                           >
                             Back
                           </button>
                           <button
-                            onClick={handleConfirmUpload}
+                            onClick={initiateImport}
                             disabled={
-                              !uploadClientId ||
-                              uploadedEntries.filter((e) => e.selected)
-                                .length === 0
+                              uploadedEntries.filter(
+                                (e) =>
+                                  e.selected && e.validationErrors.length === 0,
+                              ).length === 0
                             }
                             className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Check className="w-5 h-5" />
-                            Confirm & Import (
-                            {uploadedEntries.filter((e) => e.selected).length})
+                            Import (
+                            {
+                              uploadedEntries.filter(
+                                (e) =>
+                                  e.selected && e.validationErrors.length === 0,
+                              ).length
+                            }
+                            )
                           </button>
                         </div>
                       </div>
@@ -2031,50 +2768,6 @@ export default function EntriesPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Entries List - Card-based design for better mobile/desktop experience */}
-      <div className="space-y-4">
-        {filteredEntries.length === 0 ? (
-          <div className="card text-center py-12 lg:py-16">
-            <div className="w-16 lg:w-20 h-16 lg:h-20 mx-auto mb-4 lg:mb-6 rounded-full bg-cream-100 flex items-center justify-center">
-              <Calendar className="w-8 lg:w-10 h-8 lg:h-10 text-cream-400" />
-            </div>
-            <h3 className="font-display text-lg lg:text-xl font-semibold text-navy-800 mb-2">
-              {filterClientId ? "No entries for this client" : "No entries yet"}
-            </h3>
-            <p className="text-navy-500 mb-4 lg:mb-6">
-              {filterClientId
-                ? "Try a different filter or add new entries"
-                : "Start by adding your first duty entry"}
-            </p>
-            <button onClick={() => setShowForm(true)} className="btn-primary">
-              <Plus className="w-5 h-5" />
-              Add Entry
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredEntries.map((entry, index) => (
-              <DutyEntryCard
-                key={entry.id}
-                entry={entry}
-                clientName={getClientName(entry.clientId)}
-                showClient={true}
-                showActions={true}
-                showCheckbox={false}
-                onEdit={() => handleEdit(entry)}
-                onDelete={() => {
-                  setDeleteTargetId(entry.id);
-                  setShowDeleteConfirm(true);
-                }}
-                animationDelay={index * 0.03}
-                variant="default"
-                timeFormat={timeFormat}
-              />
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
@@ -2121,6 +2814,8 @@ export default function EntriesPage() {
                 <button
                   onClick={() => {
                     deleteEntry(deleteTargetId);
+                    updateLastUpdatedTime();
+                    showNotification("Entry deleted successfully", "success");
                     setShowDeleteConfirm(false);
                     setDeleteTargetId("");
                   }}
@@ -2128,6 +2823,86 @@ export default function EntriesPage() {
                 >
                   <Trash2 className="w-4 h-4" />
                   Confirm Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Import Conflict Modal */}
+      <AnimatePresence>
+        {showImportConflictModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-navy-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowImportConflictModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-6 h-6 text-blue-500" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
+                  Duplicate Entries Found
+                </h3>
+                <p className="text-navy-600 mb-4">
+                  {
+                    uploadedEntries.filter((e) => e.selected && e.hasDuplicate)
+                      .length
+                  }{" "}
+                  of your selected entries have Duty IDs that already exist in
+                  the system.
+                </p>
+                <div className="bg-cream-50 rounded-lg p-3 text-left text-sm space-y-1 max-h-32 overflow-y-auto">
+                  {uploadedEntries
+                    .filter((e) => e.selected && e.hasDuplicate)
+                    .slice(0, 5)
+                    .map((e, i) => (
+                      <p key={i} className="font-mono text-navy-700">
+                        {e.dutyId} - {formatDate(e.date)}
+                      </p>
+                    ))}
+                  {uploadedEntries.filter((e) => e.selected && e.hasDuplicate)
+                    .length > 5 && (
+                    <p className="text-navy-500 italic">
+                      +
+                      {uploadedEntries.filter(
+                        (e) => e.selected && e.hasDuplicate,
+                      ).length - 5}{" "}
+                      more...
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="p-6 border-t border-cream-200 flex flex-col gap-3">
+                <button
+                  onClick={() => handleConfirmUpload("overwrite")}
+                  className="w-full py-2.5 px-6 rounded-xl font-medium text-white bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Overwrite Existing Entries
+                </button>
+                <button
+                  onClick={() => handleConfirmUpload("skip")}
+                  className="btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <Ban className="w-4 h-4" />
+                  Skip Duplicates
+                </button>
+                <button
+                  onClick={() => setShowImportConflictModal(false)}
+                  className="text-navy-500 hover:text-navy-700 text-sm"
+                >
+                  Cancel
                 </button>
               </div>
             </motion.div>
@@ -2213,6 +2988,6 @@ export default function EntriesPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 }

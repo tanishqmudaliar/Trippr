@@ -53,7 +53,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  */
 async function deriveKey(
   password: string,
-  salt: Uint8Array
+  salt: Uint8Array,
 ): Promise<CryptoKey> {
   // Import the password as a raw key
   const passwordKey = await crypto.subtle.importKey(
@@ -61,7 +61,7 @@ async function deriveKey(
     new TextEncoder().encode(password),
     { name: "PBKDF2" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
 
   // Derive the actual encryption key
@@ -77,7 +77,7 @@ async function deriveKey(
     passwordKey,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -90,7 +90,7 @@ async function deriveKey(
  */
 export async function encryptData(
   data: unknown,
-  password: string
+  password: string,
 ): Promise<EncryptedData> {
   // Generate random salt and IV
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
@@ -111,7 +111,7 @@ export async function encryptData(
       iv: ivBuffer,
     },
     key,
-    plaintext
+    plaintext,
   );
 
   return {
@@ -139,7 +139,7 @@ export async function encryptData(
  */
 export async function decryptData<T = unknown>(
   encryptedData: EncryptedData,
-  password: string
+  password: string,
 ): Promise<T> {
   // Decode the base64 components
   const salt = new Uint8Array(base64ToArrayBuffer(encryptedData.salt));
@@ -159,7 +159,7 @@ export async function decryptData<T = unknown>(
         iv: ivBuffer,
       },
       key,
-      ciphertext
+      ciphertext,
     );
 
     // Parse the decrypted JSON
@@ -167,48 +167,7 @@ export async function decryptData<T = unknown>(
     return JSON.parse(decoded) as T;
   } catch {
     throw new Error(
-      "Decryption failed. This usually means the password is incorrect or the data is corrupted."
+      "Decryption failed. This usually means the password is incorrect or the data is corrupted.",
     );
-  }
-}
-
-/**
- * Validate that a password meets minimum requirements
- */
-export function validatePassword(password: string): {
-  valid: boolean;
-  errors: string[];
-} {
-  const errors: string[] = [];
-
-  if (password.length < 8) {
-    errors.push("Password must be at least 8 characters long");
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
-
-/**
- * Test encryption/decryption round-trip
- * Useful for verifying the encryption is working correctly
- */
-export async function testEncryption(): Promise<boolean> {
-  try {
-    const testData = { test: "data", number: 42, nested: { value: true } };
-    const password = "test-password-12345";
-
-    const encrypted = await encryptData(testData, password);
-    const decrypted = await decryptData<typeof testData>(encrypted, password);
-
-    return (
-      decrypted.test === testData.test &&
-      decrypted.number === testData.number &&
-      decrypted.nested.value === testData.nested.value
-    );
-  } catch {
-    return false;
   }
 }

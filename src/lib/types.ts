@@ -90,24 +90,6 @@ export interface Invoice {
   createdAt: string;
 }
 
-// Legacy type for backwards compatibility
-export interface InvoiceConfig {
-  companyName: string;
-  companyAddress: string;
-  companyEmail: string;
-  companyMobile: string;
-  clientName: string;
-  vehicleNumber: string;
-  invoiceNumber: string;
-  invoiceDate: string;
-  perDayRate: number;
-  baseKms: number;
-  baseHours: number;
-  extraKmRate: number;
-  extraHourRate: number;
-  serviceTaxPercent?: number;
-}
-
 // Utility functions
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);

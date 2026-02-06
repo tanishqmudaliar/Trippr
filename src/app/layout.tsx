@@ -3,6 +3,7 @@ import { Playfair_Display, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/components/AppProvider";
 import { SetupGuard } from "@/components/SetupGuard";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -37,6 +38,9 @@ export const metadata: Metadata = {
   icons: {
     apple: "/logo.png",
   },
+  verification: {
+    google: "sapTePNCphOFQ3g4uElYLTsQcNpFYxsM3nXQ1q8RKw4",
+  },
 };
 
 export const viewport: Viewport = {
@@ -59,9 +63,11 @@ export default function RootLayout({
     >
       <meta name="apple-mobile-web-app-title" content="Trippr" />
       <body className="antialiased">
-        <AppProvider>
-          <SetupGuard>{children}</SetupGuard>
-        </AppProvider>
+        <NotificationProvider>
+          <AppProvider>
+            <SetupGuard>{children}</SetupGuard>
+          </AppProvider>
+        </NotificationProvider>
       </body>
     </html>
   );

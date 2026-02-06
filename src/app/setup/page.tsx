@@ -180,7 +180,7 @@ export default function SetupPage() {
   // Redirect if setup AND branding are both complete
   useEffect(() => {
     if (isSetupComplete && isBrandingComplete) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [isSetupComplete, isBrandingComplete, router]);
 
@@ -342,6 +342,19 @@ export default function SetupPage() {
         throw new Error("Invalid backup file format");
       }
 
+      // Check if backup includes logo and signature
+      const hasLogo = !!data.logoBase64;
+      const hasSignature = !!data.signatureBase64;
+      const hasBothAssets = hasLogo && hasSignature;
+
+      // Save assets to IndexedDB if they exist in backup
+      if (hasLogo) {
+        await saveAsset("logo", data.logoBase64);
+      }
+      if (hasSignature) {
+        await saveAsset("signature", data.signatureBase64);
+      }
+
       // Restore the data
       restoreFromBackup({
         companyInfo: data.companyInfo,
@@ -351,10 +364,11 @@ export default function SetupPage() {
         entries: data.entries || [],
         invoices: data.invoices || [],
         backupConfig: data.backupConfig || null,
+        isBrandingComplete: hasBothAssets,
       });
 
       // Redirect to home
-      router.replace("/");
+      router.replace("/dashboard");
     } catch (err) {
       console.error("Restore error:", err);
       setRestoreError(
@@ -399,7 +413,7 @@ export default function SetupPage() {
     // If returning user just completing branding, mark branding complete and redirect
     if (isReturningUser) {
       markBrandingComplete();
-      router.replace("/");
+      router.replace("/dashboard");
       return;
     }
 
@@ -441,12 +455,14 @@ export default function SetupPage() {
             enabled: true,
             googleEmail: null,
             lastBackupAt: null,
+            lastSyncedAt: null,
+            lastUpdatedAt: new Date().toISOString(),
             autoBackup: true,
           }
         : undefined,
     });
 
-    router.replace("/");
+    router.replace("/dashboard");
   };
 
   // Handle Enter key to move to next field or next step

@@ -5,8 +5,11 @@ A modern, offline-first invoice and duty management system for transport busines
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Storage](https://img.shields.io/badge/Storage-IndexedDB%20%2B%20localStorage-brightgreen.svg)
+![Cloud Sync](https://img.shields.io/badge/Cloud_Sync-Google_Drive-4285F4?logo=googledrive&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?logo=pwa&logoColor=white)
 
 ---
 
@@ -24,6 +27,7 @@ A modern, offline-first invoice and duty management system for transport busines
 - [Cancelled Entries](#cancelled-entries)
 - [Branding & Customization](#branding--customization)
 - [Backup & Restore](#backup--restore)
+- [Cloud Sync (Google Drive)](#cloud-sync-google-drive)
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
 - [Storage & Limitations](#storage--limitations)
@@ -125,11 +129,16 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
   - Max 2MB per file
 - **Vehicle Management**: Add/edit/delete vehicles, set default
 - **Client Management**: Add/edit/delete clients
-- **Backup & Restore**:
-  - Export full data backup as encrypted JSON
-  - Restore from backup file
-  - Automatic timestamp in filename
-  - Optional encryption with custom key
+- **Cloud Sync (Google Drive)**:
+  - Connect to Google Drive for cross-device sync
+  - Manual sync with conflict resolution
+  - Download cloud data as backup
+  - Clear cloud data option
+  - Silent token refresh (no re-login needed)
+- **Local Backup**:
+  - Export full data backup as JSON
+  - Download all data for offline storage
+- **Reset Everything**: Clear all data and start fresh
 - **Layout**: Reorganized settings page with no blank space
 
 ---
@@ -220,12 +229,15 @@ npm run lint     # ESLint
 trippr/
 ├── src/
 │   ├── app/                          # Next.js App Router
-│   │   ├── page.tsx                  # Dashboard (/)
+│   │   ├── page.tsx                  # Landing Page (/)
+│   │   ├── dashboard/page.tsx        # Dashboard (/dashboard)
 │   │   ├── entries/page.tsx          # Duty entries (/entries)
 │   │   ├── invoice/page.tsx          # Invoices (/invoice)
 │   │   ├── statistics/page.tsx       # Analytics (/statistics)
 │   │   ├── settings/page.tsx         # Settings (/settings)
 │   │   ├── setup/                    # Setup wizard (/setup)
+│   │   ├── privacy/page.tsx          # Privacy Policy (/privacy)
+│   │   ├── terms/page.tsx            # Terms of Service (/terms)
 │   │   ├── oauth-callback/page.tsx   # OAuth handler
 │   │   ├── layout.tsx                # Root layout with sidebar
 │   │   ├── globals.css               # Global styles
@@ -259,20 +271,24 @@ trippr/
 
 ## Pages & Routes
 
-| Route             | Page       | Access    | Purpose              |
-| ----------------- | ---------- | --------- | -------------------- |
-| `/`               | Dashboard  | Protected | Stats overview       |
-| `/entries`        | Entries    | Protected | Manage duty entries  |
-| `/invoice`        | Invoice    | Protected | Create/edit invoices |
-| `/statistics`     | Statistics | Protected | Analytics & charts   |
-| `/settings`       | Settings   | Protected | App configuration    |
-| `/setup`          | Setup      | Public    | First-time wizard    |
-| `/oauth-callback` | OAuth      | Public    | OAuth handler        |
+| Route             | Page       | Access    | Purpose                 |
+| ----------------- | ---------- | --------- | ----------------------- |
+| `/`               | Landing    | Public    | Welcome & feature intro |
+| `/dashboard`      | Dashboard  | Protected | Stats overview          |
+| `/entries`        | Entries    | Protected | Manage duty entries     |
+| `/invoice`        | Invoice    | Protected | Create/edit invoices    |
+| `/statistics`     | Statistics | Protected | Analytics & charts      |
+| `/settings`       | Settings   | Protected | App configuration       |
+| `/setup`          | Setup      | Public    | First-time wizard       |
+| `/privacy`        | Privacy    | Public    | Privacy Policy          |
+| `/terms`          | Terms      | Public    | Terms of Service        |
+| `/oauth-callback` | OAuth      | Public    | Google OAuth handler    |
 
 **Route Protection**:
 
 - `SetupGuard` redirects to `/setup` if setup is not complete
 - Checks for branding assets (logo/signature) - redirects returning users to complete branding if missing
+- Public pages (`/privacy`, `/terms`, `/oauth-callback`) accessible without setup
 - Allows existing data to be pre-populated for returning users
 
 ---
@@ -460,9 +476,41 @@ Export your entire application data as a JSON file:
 
 **Important**: If you lose your encryption key, the backup cannot be recovered!
 
-### Cloud Backup (Google Drive)
+### Cloud Sync (Google Drive)
 
-**Coming Soon** - Optional Google Drive integration for automatic cloud backups.
+Sync your data across devices using Google Drive:
+
+**Features**:
+
+- **Secure Storage**: Data stored in hidden `appDataFolder` (not visible in your Drive)
+- **Manual Sync**: Click "Sync Now" to upload/download data
+- **Conflict Resolution**: Choose between local or cloud data when conflicts occur
+- **Silent Token Refresh**: Automatic token refresh - no re-login needed (as long as you stay logged into Google)
+- **Download Cloud Data**: Export cloud backup as JSON file
+- **Clear Cloud Data**: Delete all cloud data when needed
+
+**Setup**:
+
+1. Settings → Cloud Sync → "Connect Google Drive"
+2. Sign in with your Google account
+3. Grant permission for app-specific storage
+4. Click "Sync Now" to upload your data
+
+**What's Synced**:
+
+- All duty entries and invoices
+- Company info and user profile
+- Clients and vehicles
+- Logo and signature images
+- Backup configuration
+
+**OAuth Scopes Used**:
+
+- `drive.appdata` - Access to hidden app folder only
+- `email` - Display your email in the app
+- `profile` - Display your name in the app
+
+**Privacy**: We never access your regular Google Drive files. Data is stored in an isolated app folder that only Trippr can access. You can revoke access anytime from [Google Account Settings](https://myaccount.google.com/permissions).
 
 ---
 
@@ -645,22 +693,22 @@ This hybrid approach enables:
 
 ### Known Limitations
 
-| Limitation            | Description                                       |
-| --------------------- | ------------------------------------------------- |
-| **Single Device**     | Data stored locally only; no sync between devices |
-| **Single User**       | No multi-user or access control                   |
-| **Browser Dependent** | Clearing browser data deletes everything          |
-| **Storage Cap**       | ~5,000 entries recommended maximum                |
-| **No Cloud Sync**     | Manual backup/restore required                    |
+| Limitation            | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| **Single User**       | No multi-user or access control                    |
+| **Browser Dependent** | Clearing browser data deletes local copy           |
+| **Storage Cap**       | ~5,000 entries recommended maximum                 |
+| **Manual Sync**       | Cloud sync requires manual trigger (not automatic) |
 
 ### Data Safety Tips
 
-1. **Don't clear browser data** - All your data is in localStorage/IndexedDB
-2. **Use same browser** - Data doesn't sync across browsers
-3. **Regular backups** - Export backup JSON files regularly
-4. **Keep backup safe** - If encrypted, remember your encryption key
-5. **Download invoices** - Keep PDF copies as records
-6. **Regular browser** - Don't use incognito/private mode
+1. **Enable Cloud Sync** - Connect Google Drive for cross-device backup
+2. **Don't clear browser data** - All your local data is in localStorage/IndexedDB
+3. **Regular cloud syncs** - Sync to Google Drive before switching devices
+4. **Regular backups** - Export backup JSON files regularly
+5. **Keep backup safe** - If encrypted, remember your encryption key
+6. **Download invoices** - Keep PDF copies as records
+7. **Regular browser** - Don't use incognito/private mode
 
 ---
 

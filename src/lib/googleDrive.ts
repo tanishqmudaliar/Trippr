@@ -1,22 +1,19 @@
 /**
- * Google Drive API Client for Cloud Backup
+ * Google Drive API Client for Cloud Sync
  *
  * Uses Google Drive API v3 with appDataFolder for hidden, app-isolated storage.
+ * Data stored in appDataFolder is only accessible by this app - not visible to user in their Drive.
  * Requires OAuth 2.0 authentication with drive.appdata scope.
  */
 
-import { encryptData, decryptData, type EncryptedData } from "./encryption";
-
-// File naming convention
-const BACKUP_FILE_PREFIX = "trippr-backup-";
-const BACKUP_FILE_EXTENSION = ".enc";
-const MAX_BACKUPS = 5;
+// File naming - single sync file for simplicity
+const SYNC_FILE_NAME = "trippr-sync-data.json";
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-const SCOPES = "https://www.googleapis.com/auth/drive.appdata";
+const SCOPES = "https://www.googleapis.com/auth/drive.appdata email profile";
 
-export interface BackupFile {
+export interface SyncFile {
   id: string;
   name: string;
   modifiedTime: string;
@@ -24,9 +21,118 @@ export interface BackupFile {
 }
 
 export interface GoogleAuthState {
-  accessToken: string | null;
+  accessToken: string;
   email: string | null;
-  expiresAt: number | null;
+  name: string | null;
+  expiresAt: number;
+}
+
+export interface SyncData {
+  companyInfo: unknown;
+  userProfile: unknown;
+  vehicles: unknown[];
+  clients: unknown[];
+  entries: unknown[];
+  invoices: unknown[];
+  backupConfig: unknown;
+  isBrandingComplete: boolean;
+  logoBase64?: string | null;
+  signatureBase64?: string | null;
+  syncedAt: string;
+}
+
+export interface SyncStatus {
+  hasCloudData: boolean;
+  cloudTimestamp: string | null;
+  localTimestamp: string | null;
+  needsSync: boolean;
+  cloudData?: SyncData | null;
+}
+
+/**
+ * Check if token is still valid (with 5 minute buffer for safety)
+ */
+export function isTokenValid(auth: GoogleAuthState | null): boolean {
+  if (!auth?.accessToken || !auth.expiresAt) return false;
+  return auth.expiresAt > Date.now() + 5 * 60 * 1000;
+}
+
+/**
+ * Check if token is expiring soon (within 10 minutes) but not yet expired
+ */
+export function isTokenExpiringSoon(auth: GoogleAuthState): boolean {
+  const tenMinutesFromNow = Date.now() + 10 * 60 * 1000;
+  return auth.expiresAt < tenMinutesFromNow && auth.expiresAt > Date.now();
+}
+
+/**
+ * Silently refresh the access token using hidden iframe
+ * Uses prompt=none to skip user interaction if the user is still logged in to Google
+ */
+export async function silentRefreshToken(
+  currentAuth: GoogleAuthState,
+): Promise<GoogleAuthState | null> {
+  return new Promise((resolve) => {
+    if (!GOOGLE_CLIENT_ID) {
+      resolve(null);
+      return;
+    }
+
+    // Build OAuth URL with prompt=none for silent refresh
+    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+    authUrl.searchParams.set(
+      "redirect_uri",
+      `${window.location.origin}/oauth-callback`,
+    );
+    authUrl.searchParams.set("response_type", "token");
+    authUrl.searchParams.set("scope", SCOPES);
+    authUrl.searchParams.set("prompt", "none"); // Silent - no user interaction
+    if (currentAuth.email) {
+      authUrl.searchParams.set("login_hint", currentAuth.email); // Hint which account
+    }
+
+    // Create hidden iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    // Timeout after 10 seconds
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 10000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.removeEventListener("message", handleMessage);
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    };
+
+    // Listen for callback message
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+        cleanup();
+        const { accessToken, expiresIn, email, name } = event.data;
+        resolve({
+          accessToken,
+          email: email || currentAuth.email,
+          name: name || currentAuth.name,
+          expiresAt: Date.now() + expiresIn * 1000,
+        });
+      } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
+        cleanup();
+        resolve(null); // Silent refresh failed, but don't throw
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    iframe.src = authUrl.toString();
+  });
 }
 
 /**
@@ -36,17 +142,24 @@ export interface GoogleAuthState {
 export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
   return new Promise((resolve, reject) => {
     if (!GOOGLE_CLIENT_ID) {
-      reject(new Error("Google Client ID not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable."));
+      reject(
+        new Error(
+          "Google Client ID not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable.",
+        ),
+      );
       return;
     }
 
     // Build OAuth URL
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-    authUrl.searchParams.set("redirect_uri", `${window.location.origin}/oauth-callback`);
+    authUrl.searchParams.set(
+      "redirect_uri",
+      `${window.location.origin}/oauth-callback`,
+    );
     authUrl.searchParams.set("response_type", "token");
     authUrl.searchParams.set("scope", SCOPES);
-    authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("prompt", "select_account");
 
     // Open popup
     const width = 500;
@@ -57,11 +170,13 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
     const popup = window.open(
       authUrl.toString(),
       "Google Sign In",
-      `width=${width},height=${height},left=${left},top=${top},popup=yes`
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`,
     );
 
     if (!popup) {
-      reject(new Error("Popup was blocked. Please allow popups for this site."));
+      reject(
+        new Error("Popup was blocked. Please allow popups for this site."),
+      );
       return;
     }
 
@@ -71,11 +186,12 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
 
       if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
         window.removeEventListener("message", handleMessage);
-        const { accessToken, expiresIn, email } = event.data;
+        const { accessToken, expiresIn, email, name } = event.data;
         resolve({
           accessToken,
           email,
-          expiresAt: Date.now() + (expiresIn * 1000),
+          name,
+          expiresAt: Date.now() + expiresIn * 1000,
         });
       } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
         window.removeEventListener("message", handleMessage);
@@ -97,220 +213,228 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
 }
 
 /**
- * List all backup files in appDataFolder
+ * Find the sync file in appDataFolder
  */
-export async function listBackups(accessToken: string): Promise<BackupFile[]> {
+async function findSyncFile(accessToken: string): Promise<SyncFile | null> {
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc`,
+    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'&fields=files(id,name,modifiedTime,size)`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-    }
+    },
   );
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error?.message || "Failed to list backups");
+    throw new Error(error.error?.message || "Failed to find sync file");
   }
 
   const data = await response.json();
-  return (data.files || []).filter((file: BackupFile) =>
-    file.name.startsWith(BACKUP_FILE_PREFIX) && file.name.endsWith(BACKUP_FILE_EXTENSION)
-  );
+  return data.files && data.files.length > 0 ? data.files[0] : null;
 }
 
 /**
- * Create a new backup file
+ * Download the sync data from Google Drive
  */
-export async function createBackup(
+export async function downloadSyncData(
   accessToken: string,
-  data: unknown,
-  encryptionKey: string
-): Promise<BackupFile> {
-  // Encrypt the data
-  const encryptedData = await encryptData(data, encryptionKey);
+): Promise<SyncData | null> {
+  const syncFile = await findSyncFile(accessToken);
+  if (!syncFile) return null;
 
-  // Generate filename with timestamp
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const fileName = `${BACKUP_FILE_PREFIX}${timestamp}${BACKUP_FILE_EXTENSION}`;
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${syncFile.id}?alt=media`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
-  // Create file metadata
-  const metadata = {
-    name: fileName,
-    parents: ["appDataFolder"],
-    mimeType: "application/json",
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || "Failed to download sync data");
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload sync data to Google Drive (creates or updates the sync file)
+ */
+export async function uploadSyncData(
+  accessToken: string,
+  data: SyncData,
+): Promise<SyncFile> {
+  const existingFile = await findSyncFile(accessToken);
+
+  if (existingFile) {
+    // Update existing file
+    const response = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media&fields=id,name,modifiedTime,size`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "Failed to update sync data");
+    }
+
+    return response.json();
+  } else {
+    // Create new file
+    const metadata = {
+      name: SYNC_FILE_NAME,
+      parents: ["appDataFolder"],
+      mimeType: "application/json",
+    };
+
+    const boundary = "sync_boundary_" + Date.now();
+    const body = [
+      `--${boundary}`,
+      "Content-Type: application/json; charset=UTF-8",
+      "",
+      JSON.stringify(metadata),
+      `--${boundary}`,
+      "Content-Type: application/json",
+      "",
+      JSON.stringify(data),
+      `--${boundary}--`,
+    ].join("\r\n");
+
+    const response = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "Failed to create sync file");
+    }
+
+    return response.json();
+  }
+}
+
+/**
+ * Create a hash of data for comparison (excludes timestamps and assets for faster comparison)
+ */
+function createDataHash(data: Partial<SyncData>): string {
+  const comparableData = {
+    companyInfo: data.companyInfo,
+    userProfile: data.userProfile,
+    vehicles: data.vehicles,
+    clients: data.clients,
+    entries: data.entries,
+    invoices: data.invoices,
+    isBrandingComplete: data.isBrandingComplete,
   };
-
-  // Create multipart form data
-  const boundary = "backup_boundary_" + Date.now();
-  const body = [
-    `--${boundary}`,
-    "Content-Type: application/json; charset=UTF-8",
-    "",
-    JSON.stringify(metadata),
-    `--${boundary}`,
-    "Content-Type: application/json",
-    "",
-    JSON.stringify(encryptedData),
-    `--${boundary}--`,
-  ].join("\r\n");
-
-  const response = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to create backup");
-  }
-
-  const result = await response.json();
-
-  // Clean up old backups (keep only MAX_BACKUPS)
-  await cleanupOldBackups(accessToken);
-
-  return result;
+  return JSON.stringify(comparableData);
 }
 
 /**
- * Download and decrypt a backup file
+ * Get sync status - checks if cloud has data and if it differs from local
+ * Now compares actual data content, not just timestamps
  */
-export async function downloadBackup<T = unknown>(
+export async function getSyncStatus(
   accessToken: string,
-  fileId: string,
-  encryptionKey: string
-): Promise<T> {
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  localData: Partial<SyncData> | null,
+): Promise<SyncStatus> {
+  try {
+    const cloudData = await downloadSyncData(accessToken);
+
+    if (!cloudData) {
+      return {
+        hasCloudData: false,
+        cloudTimestamp: null,
+        localTimestamp: null,
+        needsSync: true,
+        cloudData: null,
+      };
     }
-  );
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to download backup");
+    const cloudTimestamp = cloudData.syncedAt;
+
+    // Compare actual data content, not just timestamps
+    let needsSync = true;
+    if (localData) {
+      const localHash = createDataHash(localData);
+      const cloudHash = createDataHash(cloudData);
+      needsSync = localHash !== cloudHash;
+    }
+
+    return {
+      hasCloudData: true,
+      cloudTimestamp,
+      localTimestamp: null,
+      needsSync,
+      cloudData,
+    };
+  } catch (error) {
+    console.error("Error getting sync status:", error);
+    return {
+      hasCloudData: false,
+      cloudTimestamp: null,
+      localTimestamp: null,
+      needsSync: true,
+      cloudData: null,
+    };
   }
-
-  const encryptedData: EncryptedData = await response.json();
-  return decryptData<T>(encryptedData, encryptionKey);
 }
 
 /**
- * Delete a backup file
+ * Delete the sync file from Google Drive
  */
-export async function deleteBackup(
-  accessToken: string,
-  fileId: string
-): Promise<void> {
+export async function deleteSyncData(accessToken: string): Promise<void> {
+  const syncFile = await findSyncFile(accessToken);
+  if (!syncFile) return;
+
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}`,
+    `https://www.googleapis.com/drive/v3/files/${syncFile.id}`,
     {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-    }
+    },
   );
 
   if (!response.ok && response.status !== 204) {
     const error = await response.json();
-    throw new Error(error.error?.message || "Failed to delete backup");
+    throw new Error(error.error?.message || "Failed to delete sync data");
   }
 }
 
 /**
- * Clean up old backups, keeping only the most recent MAX_BACKUPS
+ * Format timestamp for display
  */
-async function cleanupOldBackups(accessToken: string): Promise<void> {
+export function formatSyncTime(timestamp: string | null): string {
+  if (!timestamp) return "Never";
   try {
-    const backups = await listBackups(accessToken);
-
-    if (backups.length > MAX_BACKUPS) {
-      // Delete oldest backups
-      const toDelete = backups.slice(MAX_BACKUPS);
-      await Promise.all(
-        toDelete.map((backup) => deleteBackup(accessToken, backup.id))
-      );
-    }
-  } catch (error) {
-    // Don't fail the backup if cleanup fails
-    console.error("Failed to cleanup old backups:", error);
-  }
-}
-
-/**
- * Check if a backup exists
- */
-export async function hasExistingBackup(accessToken: string): Promise<boolean> {
-  try {
-    const backups = await listBackups(accessToken);
-    return backups.length > 0;
+    const date = new Date(timestamp);
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
-    return false;
+    return "Unknown";
   }
-}
-
-/**
- * Get the most recent backup
- */
-export async function getLatestBackup(accessToken: string): Promise<BackupFile | null> {
-  try {
-    const backups = await listBackups(accessToken);
-    return backups.length > 0 ? backups[0] : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Get user's Google email from token
- */
-export async function getGoogleUserEmail(accessToken: string): Promise<string | null> {
-  try {
-    const response = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return data.email || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Check if access token is still valid
- */
-export function isTokenValid(authState: GoogleAuthState | null): boolean {
-  if (!authState?.accessToken || !authState.expiresAt) return false;
-  // Add 5 minute buffer
-  return Date.now() < authState.expiresAt - 5 * 60 * 1000;
-}
-
-/**
- * Format file size for display
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

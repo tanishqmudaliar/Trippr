@@ -16,7 +16,7 @@ import {
 import { useState, useEffect } from "react";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/entries", label: "Duty Entries", icon: ClipboardList },
   { href: "/invoice", label: "Invoice", icon: FileText },
   { href: "/statistics", label: "Statistics", icon: BarChart3 },
@@ -61,7 +61,7 @@ export function Sidebar() {
       `}</style>
       {/* Logo Header */}
       <div className="p-4 lg:p-6 border-b border-cream-200">
-        <Link href="/" className="flex items-center gap-3 group">
+        <Link href="/dashboard" className="flex items-center gap-3 group">
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <span
               style={{

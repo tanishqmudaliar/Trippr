@@ -21,6 +21,11 @@ export function SetupGuard({ children }: SetupGuardProps) {
   const [hasAssets, setHasAssets] = useState(false);
 
   const isSetupPage = pathname === "/setup";
+  const isPublicPage =
+    pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/oauth-callback";
 
   // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
@@ -50,7 +55,7 @@ export function SetupGuard({ children }: SetupGuardProps) {
 
   // Redirect to setup if not complete OR branding is missing
   useEffect(() => {
-    if (isHydrated && !isCheckingAssets && !isSetupPage) {
+    if (isHydrated && !isCheckingAssets && !isSetupPage && !isPublicPage) {
       // Redirect if setup not complete OR branding not complete (missing logo/signature)
       const needsSetup =
         !isSetupComplete || (!isBrandingComplete && !hasAssets);
@@ -65,6 +70,7 @@ export function SetupGuard({ children }: SetupGuardProps) {
     isBrandingComplete,
     hasAssets,
     isSetupPage,
+    isPublicPage,
     router,
   ]);
 
@@ -93,8 +99,8 @@ export function SetupGuard({ children }: SetupGuardProps) {
   // Determine if we need to redirect
   const needsSetup = !isSetupComplete || (!isBrandingComplete && !hasAssets);
 
-  // If needs setup and not on setup page, show loading while redirecting
-  if (needsSetup && !isSetupPage) {
+  // If needs setup and not on setup page or public page, show loading while redirecting
+  if (needsSetup && !isSetupPage && !isPublicPage) {
     return (
       <div className="fixed inset-0 bg-linear-to-br from-cream-50 via-white to-saffron-50 flex items-center justify-center">
         <motion.div
@@ -108,8 +114,8 @@ export function SetupGuard({ children }: SetupGuardProps) {
     );
   }
 
-  // On setup page, render children without sidebar wrapper
-  if (isSetupPage) {
+  // On setup page or public pages, render children without sidebar wrapper
+  if (isSetupPage || isPublicPage) {
     return <>{children}</>;
   }
 

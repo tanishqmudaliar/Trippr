@@ -19,6 +19,8 @@ export interface BackupConfig {
   enabled: boolean;
   googleEmail: string | null;
   lastBackupAt: string | null;
+  lastSyncedAt: string | null;
+  lastUpdatedAt: string | null;
   autoBackup: boolean;
 }
 
@@ -63,7 +65,10 @@ interface AppState {
   // Actions - Backup
   setBackupConfig: (config: BackupConfig | null) => void;
   updateLastBackupTime: () => void;
+  updateLastSyncTime: (timestamp: string) => void;
+  updateLastUpdatedTime: () => void;
   getBackupData: () => object;
+  getSyncData: () => object;
   markBrandingComplete: () => void;
 
   // Actions - Company Info
@@ -150,7 +155,6 @@ export const useStore = create<AppState>()(
           vehicles: [data.vehicle],
           clients: [data.client],
           backupConfig: data.backupConfig || null,
-          successMessage: "Setup completed successfully!",
         });
       },
 
@@ -165,7 +169,6 @@ export const useStore = create<AppState>()(
           entries: data.entries,
           invoices: data.invoices,
           backupConfig: data.backupConfig || null,
-          successMessage: "Data restored successfully!",
         });
       },
 
@@ -179,6 +182,36 @@ export const useStore = create<AppState>()(
           backupConfig: state.backupConfig
             ? { ...state.backupConfig, lastBackupAt: new Date().toISOString() }
             : null,
+        }));
+      },
+
+      updateLastSyncTime: (timestamp: string) => {
+        set((state) => ({
+          backupConfig: state.backupConfig
+            ? { ...state.backupConfig, lastSyncedAt: timestamp }
+            : {
+                enabled: true,
+                googleEmail: null,
+                lastBackupAt: null,
+                lastSyncedAt: timestamp,
+                lastUpdatedAt: null,
+                autoBackup: false,
+              },
+        }));
+      },
+
+      updateLastUpdatedTime: () => {
+        set((state) => ({
+          backupConfig: state.backupConfig
+            ? { ...state.backupConfig, lastUpdatedAt: new Date().toISOString() }
+            : {
+                enabled: false,
+                googleEmail: null,
+                lastBackupAt: null,
+                lastSyncedAt: null,
+                lastUpdatedAt: new Date().toISOString(),
+                autoBackup: false,
+              },
         }));
       },
 
@@ -197,6 +230,20 @@ export const useStore = create<AppState>()(
         };
       },
 
+      getSyncData: () => {
+        const state = get();
+        return {
+          companyInfo: state.companyInfo,
+          userProfile: state.userProfile,
+          vehicles: state.vehicles,
+          clients: state.clients,
+          entries: state.entries,
+          invoices: state.invoices,
+          backupConfig: state.backupConfig,
+          isBrandingComplete: state.isBrandingComplete,
+        };
+      },
+
       markBrandingComplete: () => {
         set({ isBrandingComplete: true });
       },
@@ -207,7 +254,6 @@ export const useStore = create<AppState>()(
           companyInfo: state.companyInfo
             ? { ...state.companyInfo, ...info }
             : null,
-          successMessage: "Company information updated",
         }));
       },
 
@@ -217,7 +263,6 @@ export const useStore = create<AppState>()(
           userProfile: state.userProfile
             ? { ...state.userProfile, ...profile }
             : null,
-          successMessage: "Profile updated",
         }));
       },
 
@@ -235,7 +280,6 @@ export const useStore = create<AppState>()(
                 newVehicle,
               ]
             : [...state.vehicles, newVehicle],
-          successMessage: "Vehicle added",
         }));
       },
 
@@ -248,7 +292,6 @@ export const useStore = create<AppState>()(
             : state.vehicles.map((v) =>
                 v.id === id ? { ...v, ...updates } : v,
               ),
-          successMessage: "Vehicle updated",
         }));
       },
 
@@ -259,7 +302,7 @@ export const useStore = create<AppState>()(
           if (remaining.length > 0 && !remaining.some((v) => v.isDefault)) {
             remaining[0].isDefault = true;
           }
-          return { vehicles: remaining, successMessage: "Vehicle deleted" };
+          return { vehicles: remaining };
         });
       },
 
@@ -269,7 +312,6 @@ export const useStore = create<AppState>()(
             ...v,
             isDefault: v.id === id,
           })),
-          successMessage: "Default vehicle updated",
         }));
       },
 
@@ -286,7 +328,6 @@ export const useStore = create<AppState>()(
         };
         set((state) => ({
           clients: [...state.clients, newClient],
-          successMessage: "Client added",
         }));
       },
 
@@ -295,14 +336,12 @@ export const useStore = create<AppState>()(
           clients: state.clients.map((c) =>
             c.id === id ? { ...c, ...updates } : c,
           ),
-          successMessage: "Client updated",
         }));
       },
 
       deleteClient: (id) => {
         set((state) => ({
           clients: state.clients.filter((c) => c.id !== id),
-          successMessage: "Client deleted",
         }));
       },
 
@@ -316,7 +355,6 @@ export const useStore = create<AppState>()(
         const calculatedEntry = calculateDutyEntry(entry, client);
         set((state) => ({
           entries: [...state.entries, calculatedEntry],
-          successMessage: "Entry added",
         }));
       },
 
@@ -377,19 +415,18 @@ export const useStore = create<AppState>()(
             );
             return updated;
           });
-          return { entries, successMessage: "Entry updated" };
+          return { entries };
         });
       },
 
       deleteEntry: (id) => {
         set((state) => ({
           entries: state.entries.filter((e) => e.id !== id),
-          successMessage: "Entry deleted",
         }));
       },
 
       clearEntries: () => {
-        set({ entries: [], successMessage: "All entries cleared" });
+        set({ entries: [] });
       },
 
       // Invoice Actions
@@ -427,7 +464,6 @@ export const useStore = create<AppState>()(
 
         set((state) => ({
           invoices: [...state.invoices, invoice],
-          successMessage: "Invoice created",
         }));
 
         return invoice;
@@ -470,7 +506,6 @@ export const useStore = create<AppState>()(
           invoices: state.invoices.map((i) =>
             i.id === id ? updatedInvoice : i,
           ),
-          successMessage: "Invoice updated",
         }));
 
         return updatedInvoice;
@@ -479,7 +514,6 @@ export const useStore = create<AppState>()(
       deleteInvoice: (id) => {
         set((state) => ({
           invoices: state.invoices.filter((i) => i.id !== id),
-          successMessage: "Invoice deleted",
         }));
       },
 
