@@ -882,33 +882,33 @@ export default function SettingsPage() {
             </div>
 
             {/* Local Backup Section */}
-            <div className="card p-4 lg:p-6 flex-1 flex flex-col">
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="font-display text-lg font-semibold text-navy-900 flex items-center gap-2">
-                  <Download className="w-5 h-5 text-saffron-500" />
+            <div className="card p-4 lg:p-6 flex-1 flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="flex items-center gap-3 mb-5 md:mb-1 lg:mb-3">
+                <h2 className="font-display text-xl lg:text-2xl font-bold text-navy-900 flex items-center gap-3">
+                  <Download className="w-6 h-6 text-saffron-500" />
                   Local Backup
                 </h2>
               </div>
-              <p className="text-sm text-navy-600 mb-4 flex-1">
+              <p className="text-sm text-navy-600 flex-1 leading-relaxed">
                 Download a complete backup of all your data as a JSON file. You
                 can use this file to restore your data during setup on a new
                 device.
               </p>
 
-              <div className="space-y-5">
-                <button
-                  onClick={() => setShowResetConfirm(true)}
-                  className="w-full py-3 px-4 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset Everything
-                </button>
+              <div className="space-y-4 mt-4 lg:mt-0">
                 <button
                   onClick={handleDownloadData}
-                  className="btn-primary w-full"
+                  className="btn-primary w-full py-3.5 text-base font-semibold shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-5 h-5" />
                   Download All Data
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(true)}
+                  className="w-full py-2.5 px-4 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 border-2 border-red-100 hover:border-red-200 text-sm lg:text-base font-semibold flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  Reset Everything
                 </button>
               </div>
             </div>
@@ -917,21 +917,21 @@ export default function SettingsPage() {
 
         {/* Cloud Sync Section - Full Width */}
         <div className="card p-4 lg:p-6">
-          <h2 className="font-display text-lg lg:text-xl font-semibold text-navy-900 mb-4 flex items-center gap-2">
-            <Cloud className="w-5 h-5 text-saffron-500" />
+          <h2 className="font-display text-lg lg:text-xl font-bold text-navy-900 mb-5 flex items-center gap-3">
+            <Cloud className="w-6 h-6 text-saffron-500" />
             Cloud Sync
           </h2>
 
           {!googleAuth?.accessToken ? (
             // Not connected
-            <div className="text-center py-6">
-              <CloudOff className="w-12 h-12 mx-auto mb-3 text-cream-400" />
-              <p className="text-navy-600 text-sm mb-4">
+            <div className="text-center py-8">
+              <CloudOff className="w-16 h-16 mx-auto mb-4 text-cream-400" />
+              <p className="text-navy-600 text-sm lg:text-base mb-6 leading-relaxed max-w-sm mx-auto">
                 Connect to Google Drive to sync your data across devices.
               </p>
               <button
                 onClick={handleConnectGoogle}
-                className="btn-primary inline-flex"
+                className="btn-primary inline-flex px-6 py-3 text-base font-semibold shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -956,53 +956,53 @@ export default function SettingsPage() {
             </div>
           ) : (
             // Connected - Show Sync Options
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Connected Account */}
-              <div className="p-3 bg-linear-to-r from-emerald-50 to-cream-50 rounded-xl border border-emerald-100">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <div className="p-4 bg-linear-to-r from-emerald-50 to-cream-50 rounded-xl border-2 border-emerald-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     {googleAuth.name && (
-                      <p className="text-sm font-medium text-navy-800 truncate">
+                      <p className="text-sm font-semibold text-navy-800 truncate">
                         {googleAuth.name}
                       </p>
                     )}
                     <p
-                      className={`text-navy-600 truncate ${googleAuth.name ? "text-xs" : "text-sm font-medium text-navy-800"}`}
+                      className={`text-navy-600 truncate ${googleAuth.name ? "text-xs" : "text-sm font-semibold text-navy-800"}`}
                     >
                       {googleAuth.email || "Connected (reconnect to see email)"}
                     </p>
                   </div>
                   <div
-                    className={`px-2 py-1 rounded-lg text-xs font-medium ${syncStatus?.hasCloudData ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 ${syncStatus?.hasCloudData ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                   >
                     {syncStatus?.hasCloudData
                       ? "Cloud has data"
                       : "Cloud empty"}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-navy-600 pl-11">
-                  <span>
-                    <span className="text-navy-400">Local:</span>{" "}
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-navy-600 pl-12">
+                  <span className="font-medium">
+                    <span className="text-navy-500">Local:</span>{" "}
                     {formatSyncTime(backupConfig?.lastUpdatedAt || null)}
                   </span>
-                  <span>
-                    <span className="text-navy-400">Cloud:</span>{" "}
-                    {syncStatus?.hasCloudData
-                      ? formatSyncTime(backupConfig?.lastSyncedAt || null)
-                      : "No data"}
+                  <span className="font-medium">
+                    <span className="text-navy-500">Cloud:</span>{" "}
+                    {syncStatus?.hasCloudData && syncStatus.cloudTimestamp
+                      ? formatSyncTime(syncStatus.cloudTimestamp)
+                      : "Never"}
                   </span>
                 </div>
               </div>
 
               {/* Action Buttons Grid */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleSyncNow}
                   disabled={isSyncing || isCheckingSync}
-                  className="btn-primary"
+                  className="btn-primary py-3 font-semibold active:scale-[0.98] transition-all"
                 >
                   {isSyncing || isCheckingSync ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1019,7 +1019,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleDownloadCloudData}
                   disabled={isDownloadingCloud || !syncStatus?.hasCloudData}
-                  className="btn-secondary"
+                  className="btn-secondary py-3 font-semibold active:scale-[0.98] transition-all"
                 >
                   {isDownloadingCloud ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1032,7 +1032,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleClearCloudData}
                   disabled={isClearingCloud || !syncStatus?.hasCloudData}
-                  className="py-3 px-4 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="py-3 px-4 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 border-2 border-amber-100 hover:border-amber-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
                 >
                   {isClearingCloud ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1044,7 +1044,7 @@ export default function SettingsPage() {
 
                 <button
                   onClick={handleDisconnectGoogle}
-                  className="py-3 px-4 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  className="py-3 px-4 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 border-2 border-red-100 hover:border-red-200 text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
                 >
                   <CloudOff className="w-4 h-4" />
                   Disconnect

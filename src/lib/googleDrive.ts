@@ -6,8 +6,8 @@
  * Requires OAuth 2.0 authentication with drive.appdata scope.
  */
 
-// File naming - single sync file for simplicity
-const SYNC_FILE_NAME = "trippr-sync-data.json";
+// File naming - timestamp-based for versioning
+const SYNC_FILE_PREFIX = "trippr-sync-";
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
@@ -213,11 +213,11 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
 }
 
 /**
- * Find the sync file in appDataFolder
+ * Find all sync files in appDataFolder
  */
-async function findSyncFile(accessToken: string): Promise<SyncFile | null> {
+async function findAllSyncFiles(accessToken: string): Promise<SyncFile[]> {
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'&fields=files(id,name,modifiedTime,size)`,
+    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%20contains%20'${SYNC_FILE_PREFIX}'&fields=files(id,name,modifiedTime,size)&orderBy=name%20desc`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -227,11 +227,37 @@ async function findSyncFile(accessToken: string): Promise<SyncFile | null> {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error?.message || "Failed to find sync file");
+    throw new Error(error.error?.message || "Failed to find sync files");
   }
 
   const data = await response.json();
-  return data.files && data.files.length > 0 ? data.files[0] : null;
+  return data.files || [];
+}
+
+/**
+ * Find the latest sync file in appDataFolder
+ */
+async function findSyncFile(accessToken: string): Promise<SyncFile | null> {
+  const files = await findAllSyncFiles(accessToken);
+
+  if (files.length === 0) return null;
+
+  // Files with timestamp in name - sort by timestamp descending to get latest
+  const sorted = files.sort((a, b) => {
+    const timestampA = extractTimestamp(a.name);
+    const timestampB = extractTimestamp(b.name);
+    return timestampB - timestampA;
+  });
+
+  return sorted[0];
+}
+
+/**
+ * Extract timestamp from filename (e.g., "trippr-sync-1738963200000.json" -> 1738963200000)
+ */
+function extractTimestamp(filename: string): number {
+  const match = filename.match(/trippr-sync-(\d+)\.json/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 /**
@@ -261,74 +287,53 @@ export async function downloadSyncData(
 }
 
 /**
- * Upload sync data to Google Drive (creates or updates the sync file)
+ * Upload sync data to Google Drive (always creates a new timestamped file)
  */
 export async function uploadSyncData(
   accessToken: string,
   data: SyncData,
 ): Promise<SyncFile> {
-  const existingFile = await findSyncFile(accessToken);
+  // Always create a new file with timestamp
+  const timestamp = Date.now();
+  const fileName = `${SYNC_FILE_PREFIX}${timestamp}.json`;
 
-  if (existingFile) {
-    // Update existing file
-    const response = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media&fields=id,name,modifiedTime,size`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+  const metadata = {
+    name: fileName,
+    parents: ["appDataFolder"],
+    mimeType: "application/json",
+  };
+
+  const boundary = "sync_boundary_" + Date.now();
+  const body = [
+    `--${boundary}`,
+    "Content-Type: application/json; charset=UTF-8",
+    "",
+    JSON.stringify(metadata),
+    `--${boundary}`,
+    "Content-Type: application/json",
+    "",
+    JSON.stringify(data),
+    `--${boundary}--`,
+  ].join("\r\n");
+
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
       },
-    );
+      body,
+    },
+  );
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || "Failed to update sync data");
-    }
-
-    return response.json();
-  } else {
-    // Create new file
-    const metadata = {
-      name: SYNC_FILE_NAME,
-      parents: ["appDataFolder"],
-      mimeType: "application/json",
-    };
-
-    const boundary = "sync_boundary_" + Date.now();
-    const body = [
-      `--${boundary}`,
-      "Content-Type: application/json; charset=UTF-8",
-      "",
-      JSON.stringify(metadata),
-      `--${boundary}`,
-      "Content-Type: application/json",
-      "",
-      JSON.stringify(data),
-      `--${boundary}--`,
-    ].join("\r\n");
-
-    const response = await fetch(
-      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": `multipart/related; boundary=${boundary}`,
-        },
-        body,
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || "Failed to create sync file");
-    }
-
-    return response.json();
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || "Failed to create sync file");
   }
+
+  return response.json();
 }
 
 /**
@@ -349,16 +354,16 @@ function createDataHash(data: Partial<SyncData>): string {
 
 /**
  * Get sync status - checks if cloud has data and if it differs from local
- * Now compares actual data content, not just timestamps
+ * Now uses file existence and filename timestamp for status
  */
 export async function getSyncStatus(
   accessToken: string,
   localData: Partial<SyncData> | null,
 ): Promise<SyncStatus> {
   try {
-    const cloudData = await downloadSyncData(accessToken);
+    const syncFile = await findSyncFile(accessToken);
 
-    if (!cloudData) {
+    if (!syncFile) {
       return {
         hasCloudData: false,
         cloudTimestamp: null,
@@ -368,11 +373,16 @@ export async function getSyncStatus(
       };
     }
 
-    const cloudTimestamp = cloudData.syncedAt;
+    // Extract timestamp from filename
+    const timestamp = extractTimestamp(syncFile.name);
+    const cloudTimestamp = new Date(timestamp).toISOString();
+
+    // Download cloud data to compare
+    const cloudData = await downloadSyncData(accessToken);
 
     // Compare actual data content, not just timestamps
     let needsSync = true;
-    if (localData) {
+    if (localData && cloudData) {
       const localHash = createDataHash(localData);
       const cloudHash = createDataHash(cloudData);
       needsSync = localHash !== cloudHash;
@@ -398,26 +408,30 @@ export async function getSyncStatus(
 }
 
 /**
- * Delete the sync file from Google Drive
+ * Delete all sync files from Google Drive
  */
 export async function deleteSyncData(accessToken: string): Promise<void> {
-  const syncFile = await findSyncFile(accessToken);
-  if (!syncFile) return;
+  const files = await findAllSyncFiles(accessToken);
 
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${syncFile.id}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
+  // Delete all sync files
+  await Promise.all(
+    files.map(async (file) => {
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok && response.status !== 204) {
+        const error = await response.json();
+        throw new Error(error.error?.message || "Failed to delete sync data");
+      }
+    }),
   );
-
-  if (!response.ok && response.status !== 204) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to delete sync data");
-  }
 }
 
 /**

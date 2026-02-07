@@ -56,6 +56,13 @@ export default function LandingPage() {
     isSetupComplete &&
     (isBrandingComplete || hasAssets);
 
+  // Auto-redirect to dashboard if setup is complete
+  useEffect(() => {
+    if (isFullySetup) {
+      router.push("/dashboard");
+    }
+  }, [isFullySetup, router]);
+
   const handleGetStarted = () => {
     if (isFullySetup) {
       router.push("/dashboard");
@@ -98,7 +105,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-cream-50 via-white to-saffron-50">
+    <div className="min-h-screen bg-linear-to-br from-cream-50 via-white to-saffron-50 overflow-hidden">
       <style jsx>{`
         @font-face {
           font-family: "LogoFont";
@@ -107,100 +114,160 @@ export default function LandingPage() {
           font-style: normal;
         }
       `}</style>
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-cream-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <span
-              style={{
-                fontFamily: "LogoFont, serif",
-                fontSize: "1.5rem",
-                color: "#f97316",
-                borderTop: "2px solid #f97316",
-                borderBottom: "2px solid #f97316",
-                padding: "0 12px",
-                display: "inline-block",
-              }}
-            >
-              Trippr
-            </span>
-          </motion.div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/privacy"
-              className="text-sm text-navy-600 hover:text-saffron-600 transition-colors"
-            >
-              Privacy
-            </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-navy-600 hover:text-saffron-600 transition-colors"
-            >
-              Terms
-            </Link>
-          </div>
-        </div>
-      </header>
+
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-saffron-200/30 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-cream-200/40 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-saffron-100/40 rounded-full blur-3xl" />
+      </div>
 
       {/* Hero Section */}
-      <main className="pt-24 pb-16 px-4">
+      <main className="relative pt-20 pb-16 px-4">
         <div className="max-w-6xl mx-auto">
+          {/* Hero Content */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-12"
           >
+            {/* Logo with enhanced styling */}
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="mb-6"
+              className="mb-8 relative inline-block"
             >
+              <div className="absolute inset-0 bg-saffron-400/20 blur-2xl rounded-full scale-150" />
               <span
                 style={{
                   fontFamily: "LogoFont, serif",
-                  fontSize: "4rem",
+                  fontSize: "5rem",
                   color: "#f97316",
                   borderTop: "4px solid #f97316",
                   borderBottom: "4px solid #f97316",
-                  padding: "0 24px",
+                  padding: "0 32px",
                   display: "inline-block",
+                  position: "relative",
                 }}
               >
                 Trippr
               </span>
             </motion.div>
-            <h1 className="font-display text-3xl lg:text-5xl font-bold text-navy-900 mb-4">
-              Invoice & Duty Management
-            </h1>
-            <p className="text-lg lg:text-xl text-navy-600 max-w-2xl mx-auto mb-8">
-              A modern, offline-first invoice and duty management system for
-              transport businesses, freelancers, and logistics service
-              providers.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleGetStarted}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-linear-to-r from-saffron-500 to-saffron-600 text-white font-semibold rounded-xl shadow-lg shadow-saffron-500/30 hover:shadow-xl hover:shadow-saffron-500/40 transition-all"
+
+            {/* Tagline badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mb-6"
             >
-              {isFullySetup ? "Go to Dashboard" : "Get Started"}
-              <ArrowRight className="w-5 h-5" />
-            </motion.button>
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-saffron-100/80 text-saffron-700 text-sm font-medium rounded-full border border-saffron-200">
+                <span className="w-2 h-2 bg-saffron-500 rounded-full animate-pulse" />
+                Offline-First • Privacy-Focused • Professional
+              </span>
+            </motion.div>
+
+            {/* Main heading */}
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-navy-900 mb-6 leading-tight"
+            >
+              Invoice & Duty Management
+              <span className="block text-transparent bg-clip-text bg-linear-to-r from-saffron-500 to-saffron-600">
+                Made Simple
+              </span>
+            </motion.h1>
+
+            {/* Subtitle */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="text-lg lg:text-xl text-navy-600 max-w-2xl mx-auto lg:mb-6 mb-10 leading-relaxed"
+            >
+              A modern invoice and duty management system designed for transport
+              businesses, freelancers, and logistics service providers.
+            </motion.p>
+
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            >
+              <motion.button
+                whileHover={{
+                  scale: 1.05,
+                  boxShadow: "0 20px 40px -12px rgba(249, 115, 22, 0.35)",
+                }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleGetStarted}
+                className="inline-flex items-center gap-2 px-8 py-4 bg-linear-to-r from-saffron-500 to-saffron-600 text-white font-semibold rounded-xl shadow-lg shadow-saffron-500/30 transition-all"
+              >
+                {isFullySetup ? "Go to Dashboard" : "Get Started Free"}
+                <ArrowRight className="w-5 h-5" />
+              </motion.button>
+            </motion.div>
+
             {isFullySetup && (
-              <p className="mt-4 text-sm text-navy-500">
-                Welcome back! Your setup is complete.
-              </p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="mt-6 text-sm text-navy-500"
+              >
+                Welcome back! Redirecting to your dashboard...
+              </motion.p>
             )}
+
+            {/* Trust indicators */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="mt-10 lg:mt-6 flex flex-wrap items-center justify-center gap-6 text-sm text-navy-500"
+            >
+              <div className="flex items-center gap-2">
+                <WifiOff className="w-4 h-4 text-saffron-500" />
+                <span>Works offline</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-saffron-500" />
+                <span>Data stays on device</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-saffron-500" />
+                <span>Optional cloud sync</span>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Features Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="text-center py-10 lg:pt-6"
+          >
+            <h2 className="font-display text-2xl lg:text-3xl font-bold text-navy-900 mb-3">
+              Everything you need
+            </h2>
+            <p className="text-navy-600 max-w-xl mx-auto">
+              Powerful features designed to streamline your workflow
+            </p>
           </motion.div>
 
           {/* Features Grid */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
           >
             {features.map((feature, index) => {
               const Icon = feature.icon;
@@ -210,15 +277,18 @@ export default function LandingPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.1 * index }}
-                  className="p-6 bg-white rounded-2xl shadow-sm border border-cream-200 hover:shadow-md hover:border-saffron-200 transition-all group"
+                  whileHover={{ y: -4 }}
+                  className="p-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-cream-200/60 hover:shadow-lg hover:border-saffron-200 transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-saffron-100 to-saffron-200 flex items-center justify-center mb-4 group-hover:from-saffron-200 group-hover:to-saffron-300 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-linear-to-br from-saffron-100 to-saffron-200 flex items-center justify-center mb-4 group-hover:from-saffron-200 group-hover:to-saffron-300 transition-colors shadow-sm">
                     <Icon className="w-6 h-6 text-saffron-600" />
                   </div>
                   <h3 className="font-display text-lg font-semibold text-navy-900 mb-2">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-navy-600">{feature.description}</p>
+                  <p className="text-sm text-navy-600 leading-relaxed">
+                    {feature.description}
+                  </p>
                 </motion.div>
               );
             })}
@@ -228,8 +298,8 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-center border-t border-cream-200 pt-8"
+            transition={{ delay: 0.6 }}
+            className="text-center border-t border-cream-200/60 pt-10 mt-8"
           >
             <p className="text-sm text-navy-600 mb-4">
               Made with <span className="text-red-500">❤️</span> by{" "}
@@ -242,14 +312,14 @@ export default function LandingPage() {
                 Tanishq Mudaliar
               </a>
             </p>
-            <div className="flex items-center justify-center gap-4 text-xs text-navy-500">
+            <div className="flex items-center justify-center gap-6 text-xs text-navy-500">
               <Link
                 href="/privacy"
                 className="hover:text-saffron-600 transition-colors"
               >
                 Privacy Policy
               </Link>
-              <span>•</span>
+              <span className="w-1 h-1 bg-navy-300 rounded-full" />
               <Link
                 href="/terms"
                 className="hover:text-saffron-600 transition-colors"

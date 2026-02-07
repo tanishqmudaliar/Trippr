@@ -25,6 +25,8 @@ yarn-error.log*
 # Local env files
 .env*.local
 .env
+cloud.google.com-main.json
+cloud.google.com-localhost.json
 
 # Vercel
 .vercel
