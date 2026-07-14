@@ -123,10 +123,10 @@ export default function SettingsPage() {
     if (savedAuth) {
       try {
         const auth: GoogleAuthState = JSON.parse(savedAuth);
-        if (isTokenValid(auth)) {
-          setGoogleAuth(auth);
-        } else {
-          // Token expired, try silent refresh
+        setGoogleAuth(auth);
+
+        if (!isTokenValid(auth)) {
+          // Token expired, try silent refresh but keep the saved connection if it fails
           silentRefreshToken(auth).then((newAuth) => {
             if (newAuth) {
               setGoogleAuth(newAuth);
@@ -134,14 +134,11 @@ export default function SettingsPage() {
                 GOOGLE_AUTH_STORAGE_KEY,
                 JSON.stringify(newAuth),
               );
-            } else {
-              // Silent refresh failed, clear auth
-              localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
             }
           });
         }
       } catch {
-        localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+        // Leave storage untouched; user can manually disconnect/reconnect if needed.
       }
     }
   }, []);
