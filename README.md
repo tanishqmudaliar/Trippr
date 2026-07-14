@@ -20,6 +20,8 @@ A modern, offline-first invoice and duty management system for transport busines
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
 - [Pages & Routes](#pages--routes)
 - [Data Types](#data-types)
 - [Invoice Calculation Logic](#invoice-calculation-logic)
@@ -27,7 +29,6 @@ A modern, offline-first invoice and duty management system for transport busines
 - [Cancelled Entries](#cancelled-entries)
 - [Branding & Customization](#branding--customization)
 - [Backup & Restore](#backup--restore)
-- [Cloud Sync (Google Drive)](#cloud-sync-google-drive)
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
 - [Storage & Limitations](#storage--limitations)
@@ -266,6 +267,48 @@ trippr/
 ├── LICENSE                           # MIT License
 └── README.md                         # Project documentation
 ```
+
+---
+
+## Architecture
+
+Trippr uses a client-heavy architecture with local-first persistence and optional cloud sync. Core app logic runs in the browser via Next.js (App Router), with Zustand managing state and persistence to localStorage plus IndexedDB for binary assets.
+
+```text
+User UI (Next.js + React)
+        |
+        v
+Zustand Store (src/store/useStore.ts)
+        |
+        +--> localStorage (business data: clients, entries, invoices, settings)
+        +--> IndexedDB (binary assets: logo/signature)
+        |
+        +--> PDF pipeline (@react-pdf/renderer) -> downloadable invoice
+        |
+        +--> Optional Google Drive sync (OAuth + Drive appDataFolder)
+```
+
+| Layer | Responsibility |
+| ----- | -------------- |
+| **UI & Routing** | Pages, setup flow, dashboard, entries, invoices, settings |
+| **State Layer** | Centralized app state, mutations, persistence orchestration |
+| **Local Persistence** | Offline storage for structured data and media assets |
+| **Cloud Sync (Optional)** | Encrypted/managed backup + cross-device restore via Google Drive |
+| **Document Generation** | Invoice rendering and export to PDF |
+
+---
+
+## Configuration
+
+Trippr works fully offline with zero required environment variables. Add configuration only for optional integrations/default assets.
+
+| Variable | Required | Purpose | Example |
+| -------- | -------- | ------- | ------- |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Optional (required only for Google Drive sync) | Enables OAuth login and Drive appDataFolder sync. | `1234567890-abc.apps.googleusercontent.com` |
+| `NEXT_PUBLIC_LOGO_BASE64` | Optional | Default logo used when no custom logo is uploaded in settings. | `data:image/png;base64,...` |
+| `NEXT_PUBLIC_SIGNATURE_BASE64` | Optional | Default signature used when no custom signature is uploaded in settings. | `data:image/png;base64,...` |
+
+For local development, create a `.env.local` file (or copy `.env.example`) and set only the variables you need.
 
 ---
 
@@ -764,6 +807,6 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-Made with ❤️ by Tanishq Mudaliar
+Made with ❤️ by [Tanishq Mudaliar](https://github.com/tanishqmudaliar)
 
 **Stop juggling spreadsheets. Manage duties, generate invoices, track everything—offline! 🚗**
