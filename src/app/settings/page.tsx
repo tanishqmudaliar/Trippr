@@ -46,6 +46,7 @@ import {
   isTokenExpiringSoon,
   silentRefreshToken,
   formatSyncTime,
+  GoogleDriveAuthError,
   type GoogleAuthState,
   type SyncData,
   type SyncStatus,
@@ -111,6 +112,7 @@ export default function SettingsPage() {
   // Sync state
   const [googleAuth, setGoogleAuth] = useState<GoogleAuthState | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [syncCheckError, setSyncCheckError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCheckingSync, setIsCheckingSync] = useState(false);
   const [showSyncConflictModal, setShowSyncConflictModal] = useState(false);
@@ -126,7 +128,7 @@ export default function SettingsPage() {
         setGoogleAuth(auth);
 
         if (!isTokenValid(auth)) {
-          // Token expired, try silent refresh but keep the saved connection if it fails
+          // Token expired - try a silent refresh before trusting this session
           silentRefreshToken(auth).then((newAuth) => {
             if (newAuth) {
               setGoogleAuth(newAuth);
@@ -134,6 +136,13 @@ export default function SettingsPage() {
                 GOOGLE_AUTH_STORAGE_KEY,
                 JSON.stringify(newAuth),
               );
+            } else {
+              // Refresh genuinely failed - this session is dead. Don't keep
+              // showing "connected" with a token that can't be used; fall
+              // back to the disconnected state so the user can reconnect.
+              setGoogleAuth(null);
+              setSyncStatus(null);
+              localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
             }
           });
         }
@@ -432,25 +441,53 @@ export default function SettingsPage() {
   };
 
   // Backup handlers
+  // A confirmed-dead session (Drive returned 401) should never be shown as
+  // "connected" with an empty cloud - fall back to the disconnected state
+  // and ask the user to reconnect.
+  const disconnectDueToAuthError = useCallback(() => {
+    setGoogleAuth(null);
+    setSyncStatus(null);
+    setSyncCheckError(null);
+    setBackupConfig(null);
+    localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+    showNotification(
+      "Google Drive session expired. Please reconnect.",
+      "error",
+    );
+  }, [setBackupConfig, showNotification]);
+
   // Check sync status when connected
   const checkSyncStatus = useCallback(async () => {
     if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
     setIsCheckingSync(true);
+    setSyncCheckError(null);
     try {
       const localData = getSyncData();
       const status = await getSyncStatus(googleAuth.accessToken, localData);
       setSyncStatus(status);
     } catch (error) {
       console.error("Failed to check sync status:", error);
+      if (error instanceof GoogleDriveAuthError) {
+        disconnectDueToAuthError();
+      } else {
+        // A transient/network failure is not the same as "cloud is empty" -
+        // surface it distinctly and leave the last known syncStatus alone.
+        setSyncCheckError(
+          error instanceof Error
+            ? error.message
+            : "Couldn't check cloud status",
+        );
+      }
     } finally {
       setIsCheckingSync(false);
     }
-  }, [googleAuth, getSyncData]);
+  }, [googleAuth, getSyncData, disconnectDueToAuthError]);
 
   const handleConnectGoogle = async () => {
     try {
       const auth = await authenticateWithGoogle();
       setGoogleAuth(auth);
+      setSyncCheckError(null);
       setBackupConfig({
         enabled: true,
         googleEmail: auth.email,
@@ -471,6 +508,7 @@ export default function SettingsPage() {
   const handleDisconnectGoogle = () => {
     setGoogleAuth(null);
     setSyncStatus(null);
+    setSyncCheckError(null);
     setBackupConfig(null);
     localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
     showNotification("Disconnected from Google Drive", "success");
@@ -481,6 +519,7 @@ export default function SettingsPage() {
     if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
 
     setIsCheckingSync(true);
+    setSyncCheckError(null);
     try {
       const localData = getSyncData();
       const status = await getSyncStatus(googleAuth.accessToken, localData);
@@ -496,10 +535,14 @@ export default function SettingsPage() {
         showNotification("Already in sync!", "success");
       }
     } catch (error) {
-      showNotification(
-        error instanceof Error ? error.message : "Sync check failed",
-        "error",
-      );
+      if (error instanceof GoogleDriveAuthError) {
+        disconnectDueToAuthError();
+      } else {
+        showNotification(
+          error instanceof Error ? error.message : "Sync check failed",
+          "error",
+        );
+      }
     } finally {
       setIsCheckingSync(false);
     }
@@ -537,10 +580,14 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
       showNotification("Cloud data downloaded!", "success");
     } catch (error) {
-      showNotification(
-        error instanceof Error ? error.message : "Download failed",
-        "error",
-      );
+      if (error instanceof GoogleDriveAuthError) {
+        disconnectDueToAuthError();
+      } else {
+        showNotification(
+          error instanceof Error ? error.message : "Download failed",
+          "error",
+        );
+      }
     } finally {
       setIsDownloadingCloud(false);
     }
@@ -568,10 +615,14 @@ export default function SettingsPage() {
       updateLastSyncTime("");
       showNotification("Cloud data cleared!", "success");
     } catch (error) {
-      showNotification(
-        error instanceof Error ? error.message : "Clear failed",
-        "error",
-      );
+      if (error instanceof GoogleDriveAuthError) {
+        disconnectDueToAuthError();
+      } else {
+        showNotification(
+          error instanceof Error ? error.message : "Clear failed",
+          "error",
+        );
+      }
     } finally {
       setIsClearingCloud(false);
     }
@@ -608,10 +659,14 @@ export default function SettingsPage() {
       });
       showNotification("Data synced to cloud!", "success");
     } catch (error) {
-      showNotification(
-        error instanceof Error ? error.message : "Upload failed",
-        "error",
-      );
+      if (error instanceof GoogleDriveAuthError) {
+        disconnectDueToAuthError();
+      } else {
+        showNotification(
+          error instanceof Error ? error.message : "Upload failed",
+          "error",
+        );
+      }
     } finally {
       setIsSyncing(false);
     }
@@ -972,13 +1027,28 @@ export default function SettingsPage() {
                       {googleAuth.email || "Connected (reconnect to see email)"}
                     </p>
                   </div>
-                  <div
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 ${syncStatus?.hasCloudData ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                  <button
+                    type="button"
+                    onClick={syncCheckError ? checkSyncStatus : undefined}
+                    disabled={!syncCheckError}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 ${
+                      isCheckingSync
+                        ? "bg-cream-100 text-navy-500"
+                        : syncCheckError
+                          ? "bg-red-100 text-red-700 cursor-pointer"
+                          : syncStatus?.hasCloudData
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                    }`}
                   >
-                    {syncStatus?.hasCloudData
-                      ? "Cloud has data"
-                      : "Cloud empty"}
-                  </div>
+                    {isCheckingSync
+                      ? "Checking..."
+                      : syncCheckError
+                        ? "Connection issue - retry"
+                        : syncStatus?.hasCloudData
+                          ? "Cloud has data"
+                          : "Cloud empty"}
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-navy-600 pl-12">
                   <span className="font-medium">

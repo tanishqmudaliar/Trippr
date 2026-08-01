@@ -50,6 +50,43 @@ export interface SyncStatus {
 }
 
 /**
+ * Thrown when a Google Drive API call fails because the access token is
+ * invalid or expired (HTTP 401). Callers can check `instanceof
+ * GoogleDriveAuthError` to distinguish "this session needs reconnecting"
+ * from a transient/network failure - the two should never be treated the
+ * same as "the cloud has no data".
+ */
+export class GoogleDriveAuthError extends Error {
+  constructor(message = "Google Drive session expired or invalid") {
+    super(message);
+    this.name = "GoogleDriveAuthError";
+  }
+}
+
+/**
+ * Throw a typed error for a failed Drive API response. 401s become
+ * GoogleDriveAuthError so callers can react differently (e.g. prompt a
+ * reconnect) instead of silently treating the failure as "no data".
+ */
+async function throwDriveError(
+  response: Response,
+  fallback: string,
+): Promise<never> {
+  let message = fallback;
+  try {
+    const error = await response.json();
+    message = error.error?.message || fallback;
+  } catch {
+    // Response body wasn't JSON - stick with the fallback message
+  }
+
+  if (response.status === 401) {
+    throw new GoogleDriveAuthError(message);
+  }
+  throw new Error(message);
+}
+
+/**
  * Check if token is still valid (with 5 minute buffer for safety)
  */
 export function isTokenValid(auth: GoogleAuthState | null): boolean {
@@ -226,8 +263,7 @@ async function findAllSyncFiles(accessToken: string): Promise<SyncFile[]> {
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to find sync files");
+    await throwDriveError(response, "Failed to find sync files");
   }
 
   const data = await response.json();
@@ -279,8 +315,7 @@ export async function downloadSyncData(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to download sync data");
+    await throwDriveError(response, "Failed to download sync data");
   }
 
   return response.json();
@@ -329,8 +364,7 @@ export async function uploadSyncData(
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to create sync file");
+    await throwDriveError(response, "Failed to create sync file");
   }
 
   return response.json();
@@ -360,43 +394,13 @@ export async function getSyncStatus(
   accessToken: string,
   localData: Partial<SyncData> | null,
 ): Promise<SyncStatus> {
-  try {
-    const syncFile = await findSyncFile(accessToken);
+  // Intentionally no try/catch here. A failed check (expired token,
+  // network error, rate limit) is NOT the same thing as "the cloud has
+  // no data" and must not be reported as such - let it throw and have
+  // the caller decide how to handle/display the failure.
+  const syncFile = await findSyncFile(accessToken);
 
-    if (!syncFile) {
-      return {
-        hasCloudData: false,
-        cloudTimestamp: null,
-        localTimestamp: null,
-        needsSync: true,
-        cloudData: null,
-      };
-    }
-
-    // Extract timestamp from filename
-    const timestamp = extractTimestamp(syncFile.name);
-    const cloudTimestamp = new Date(timestamp).toISOString();
-
-    // Download cloud data to compare
-    const cloudData = await downloadSyncData(accessToken);
-
-    // Compare actual data content, not just timestamps
-    let needsSync = true;
-    if (localData && cloudData) {
-      const localHash = createDataHash(localData);
-      const cloudHash = createDataHash(cloudData);
-      needsSync = localHash !== cloudHash;
-    }
-
-    return {
-      hasCloudData: true,
-      cloudTimestamp,
-      localTimestamp: null,
-      needsSync,
-      cloudData,
-    };
-  } catch (error) {
-    console.error("Error getting sync status:", error);
+  if (!syncFile) {
     return {
       hasCloudData: false,
       cloudTimestamp: null,
@@ -405,6 +409,29 @@ export async function getSyncStatus(
       cloudData: null,
     };
   }
+
+  // Extract timestamp from filename
+  const timestamp = extractTimestamp(syncFile.name);
+  const cloudTimestamp = new Date(timestamp).toISOString();
+
+  // Download cloud data to compare
+  const cloudData = await downloadSyncData(accessToken);
+
+  // Compare actual data content, not just timestamps
+  let needsSync = true;
+  if (localData && cloudData) {
+    const localHash = createDataHash(localData);
+    const cloudHash = createDataHash(cloudData);
+    needsSync = localHash !== cloudHash;
+  }
+
+  return {
+    hasCloudData: true,
+    cloudTimestamp,
+    localTimestamp: null,
+    needsSync,
+    cloudData,
+  };
 }
 
 /**
@@ -427,8 +454,7 @@ export async function deleteSyncData(accessToken: string): Promise<void> {
       );
 
       if (!response.ok && response.status !== 204) {
-        const error = await response.json();
-        throw new Error(error.error?.message || "Failed to delete sync data");
+        await throwDriveError(response, "Failed to delete sync data");
       }
     }),
   );
