@@ -38,7 +38,8 @@ import {
   AdditionalCharge,
   getEntryDayCount,
 } from "@/lib/types";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/browser";
+import writeXlsxFile from "write-excel-file/browser";
 import DutyEntryCard from "@/components/DutyEntryCard";
 
 type EntryMode = "select" | "manual" | "upload";
@@ -690,11 +691,11 @@ export default function EntriesPage() {
     try {
       const extension = file.name.split(".").pop()?.toLowerCase();
 
-      if (extension === "csv" || extension === "xlsx" || extension === "xls") {
+      if (extension === "csv" || extension === "xlsx") {
         await parseSpreadsheet(file);
       } else {
         showNotification(
-          "Unsupported file format. Please use Excel (.xlsx, .xls) or CSV files.",
+          "Unsupported file format. Please use Excel (.xlsx) or CSV files.",
           "error",
         );
       }
@@ -755,12 +756,67 @@ export default function EntriesPage() {
     return str || fallback;
   };
 
+  const parseCsv = (csv: string): unknown[][] => {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let cell = "";
+    let quoted = false;
+
+    for (let index = 0; index < csv.length; index += 1) {
+      const char = csv[index];
+      const next = csv[index + 1];
+
+      if (char === '"') {
+        if (quoted && next === '"') {
+          cell += '"';
+          index += 1;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (char === "," && !quoted) {
+        row.push(cell);
+        cell = "";
+      } else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && next === "\n") index += 1;
+        row.push(cell);
+        rows.push(row);
+        row = [];
+        cell = "";
+      } else {
+        cell += char;
+      }
+    }
+
+    if (cell || row.length > 0) {
+      row.push(cell);
+      rows.push(row);
+    }
+
+    return rows;
+  };
+
+  const csvEscape = (value: string) =>
+    /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+  const downloadBlob = (data: BlobPart, fileName: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([data], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const parseSpreadsheet = async (file: File) => {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    let data: unknown[][];
+
+    if (extension === "csv") {
+      data = parseCsv(await file.text());
+    } else {
+      const sheets = await readXlsxFile(await file.arrayBuffer());
+      data = sheets[0]?.data || [];
+    }
 
     if (data.length < 2) {
       showNotification("File appears to be empty or has no data rows", "error");
@@ -1170,7 +1226,7 @@ export default function EntriesPage() {
   }, [entries, filterClientId, searchQuery]);
 
   // Download entries
-  const handleDownloadEntries = (format: "xlsx" | "csv") => {
+  const handleDownloadEntries = async (format: "xlsx" | "csv") => {
     const entriesToExport = filteredEntries;
     if (entriesToExport.length === 0) return;
 
@@ -1219,16 +1275,19 @@ export default function EntriesPage() {
         : "",
     ]);
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Entries");
     const fileName = `trippr-entries-${new Date().toISOString().split("T")[0]}`;
 
     if (format === "csv") {
-      XLSX.writeFile(wb, `${fileName}.csv`, { bookType: "csv" });
+      const csv = [headers, ...rows]
+        .map((row) => row.map((value) => csvEscape(String(value ?? ""))).join(","))
+        .join("\r\n");
+      downloadBlob(csv, `${fileName}.csv`, "text/csv;charset=utf-8");
       showNotification("Entries exported as CSV", "success");
     } else {
-      XLSX.writeFile(wb, `${fileName}.xlsx`);
+      const xlsxFile = writeXlsxFile([headers, ...rows] as (string | number)[][], {
+        sheet: "Entries",
+      });
+      await xlsxFile.toFile(`${fileName}.xlsx`);
       showNotification("Entries exported as Excel", "success");
     }
   };
@@ -2400,7 +2459,7 @@ export default function EntriesPage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".xlsx,.xls,.csv"
+                          accept=".xlsx,.csv"
                           onChange={handleFileSelect}
                           className="hidden"
                           id="file-upload"
@@ -2423,7 +2482,7 @@ export default function EntriesPage() {
                                 Drop your file here or click to browse
                               </p>
                               <p className="text-sm text-navy-500">
-                                Supports Excel (.xlsx, .xls) and CSV files
+                                Supports Excel (.xlsx) and CSV files
                               </p>
                             </>
                           )}
