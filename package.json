@@ -14,7 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "date-fns": "^4.4.0",
     "framer-motion": "^13.4.4",
