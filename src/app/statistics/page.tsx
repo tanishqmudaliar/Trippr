@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/store/useStore";
 import {
   Calendar,
@@ -12,12 +12,16 @@ import {
   BarChart3,
   FileText,
   Users,
-  CheckCircle,
+  CheckCircle2,
   AlertCircle,
   ChevronDown,
   Hash,
+  ArrowRight,
+  Sparkles,
+  PieChart as PieChartIcon,
+  Filter,
 } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import {
   formatDate,
   formatCurrency,
@@ -44,7 +48,7 @@ export default function StatisticsPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [customRange, setCustomRange] = useState({ start: "", end: "" });
   const [expandedClients, setExpandedClients] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   // Calculate date range based on filter
@@ -94,13 +98,11 @@ export default function StatisticsPage() {
 
   // Calculate revenue stats
   const revenueStats = useMemo(() => {
-    // Billed revenue from invoices
     const billedRevenue = filteredInvoices.reduce(
       (sum, inv) => sum + inv.roundedTotal,
-      0
+      0,
     );
 
-    // Unbilled revenue - calculate potential revenue from unbilled entries
     let unbilledRevenue = 0;
     const unbilledByClient = new Map<string, typeof entries>();
 
@@ -130,21 +132,21 @@ export default function StatisticsPage() {
   const stats = useMemo(() => {
     const totalDays = filteredEntries.reduce(
       (sum, e) => sum + getEntryDayCount(e),
-      0
+      0,
     );
     const totalKms = filteredEntries.reduce((sum, e) => sum + e.totalKms, 0);
     const totalHours = filteredEntries.reduce((sum, e) => sum + e.totalTime, 0);
     const totalExtraKms = filteredEntries.reduce(
       (sum, e) => sum + e.extraKms,
-      0
+      0,
     );
     const totalExtraHours = filteredEntries.reduce(
       (sum, e) => sum + e.extraTime,
-      0
+      0,
     );
     const totalTollParking = filteredEntries.reduce(
       (sum, e) => sum + e.tollParking,
-      0
+      0,
     );
     const avgInvoiceValue =
       filteredInvoices.length > 0
@@ -166,8 +168,8 @@ export default function StatisticsPage() {
 
   // Revenue pie chart data
   const revenuePieData = [
-    { name: "Billed", value: revenueStats.billed, color: "#22c55e" },
-    { name: "Unbilled", value: revenueStats.unbilled, color: "#f97316" },
+    { name: "Billed Revenue", value: revenueStats.billed, color: "#10b981" },
+    { name: "Unbilled Pipeline", value: revenueStats.unbilled, color: "#f97316" },
   ];
 
   // Client revenue data for bar chart
@@ -183,12 +185,12 @@ export default function StatisticsPage() {
       .map(([clientId, revenue]) => {
         const client = clients.find((c) => c.id === clientId);
         return {
-          name: client?.name?.substring(0, 15) || "Unknown",
+          name: client?.name?.substring(0, 14) || "Unknown",
           revenue,
         };
       })
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+      .slice(0, 6);
   }, [filteredInvoices, clients]);
 
   // Unbilled entries grouped by client
@@ -205,7 +207,6 @@ export default function StatisticsPage() {
       grouped.get(entry.clientId)!.entries.push(entry);
     });
 
-    // Calculate potential revenue for each client
     grouped.forEach((data, clientId) => {
       const client = clients.find((c) => c.id === clientId);
       if (client) {
@@ -220,7 +221,7 @@ export default function StatisticsPage() {
       entryCount: data.entries.length,
       potentialRevenue: data.potentialRevenue,
       entries: data.entries.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       ),
     }));
   }, [unbilledEntries, clients]);
@@ -241,304 +242,384 @@ export default function StatisticsPage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 lg:space-y-8"
+      transition={{ duration: 0.3 }}
+      className="space-y-6 lg:space-y-8 pb-10"
     >
       {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl lg:text-4xl font-bold text-navy-900 mb-2">
-          Statistics
-        </h1>
-        <p className="text-navy-500 text-sm lg:text-lg">
-          Comprehensive overview of your business performance
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-cream-200/80">
+        <div>
+          <h1 className="font-display text-2xl lg:text-3xl font-bold text-navy-950 tracking-tight">
+            Financial & Fleet Analytics
+          </h1>
+          <p className="text-xs sm:text-sm text-navy-500 font-medium">
+            Monitor real-time revenue, unbilled receivables, and fleet utilization
+          </p>
+        </div>
 
-      {/* Time Filter */}
-      <div className="card p-4 lg:p-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="font-medium text-navy-700">Time Period:</span>
-          <div className="flex gap-2 p-1 bg-cream-100 rounded-xl w-full md:w-max justify-evenly">
+        {/* Time Filter Segmented Switch */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-1.5 rounded-2xl border border-cream-200/90 shadow-subtle">
+          <div className="inline-flex p-1 rounded-xl bg-cream-100/90">
             <button
               onClick={() => setTimeFilter("all")}
-              className={`px-4 py-2 rounded-lg font-medium transition-all text-sm ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "all"
-                  ? "bg-white shadow-sm text-saffron-600"
-                  : "text-navy-600 hover:text-navy-800"
+                  ? "bg-white text-saffron-700 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900"
               }`}
             >
               All Time
             </button>
             <button
               onClick={() => setTimeFilter("30days")}
-              className={`px-4 py-2 rounded-lg font-medium transition-all text-sm ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "30days"
-                  ? "bg-white shadow-sm text-saffron-600"
-                  : "text-navy-600 hover:text-navy-800"
+                  ? "bg-white text-saffron-700 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900"
               }`}
             >
               Last 30 Days
             </button>
             <button
               onClick={() => setTimeFilter("custom")}
-              className={`px-4 py-2 rounded-lg font-medium transition-all text-sm ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "custom"
-                  ? "bg-white shadow-sm text-saffron-600"
-                  : "text-navy-600 hover:text-navy-800"
+                  ? "bg-white text-saffron-700 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900"
               }`}
             >
-              Custom
+              Custom Range
             </button>
           </div>
+
           {timeFilter === "custom" && (
-            <div className="w-full md:flex-1 flex flex-col md:flex-row items-start md:items-center gap-3 mt-0">
-              <div className="w-full md:flex-1">
-                <label className="block text-xs text-navy-500 mb-1 md:hidden">
-                  From Date
-                </label>
-                <input
-                  type="date"
-                  value={customRange.start}
-                  onChange={(e) =>
-                    setCustomRange({ ...customRange, start: e.target.value })
-                  }
-                  className="input-field py-2 text-sm w-full"
-                />
-              </div>
-              <span className="text-navy-400 hidden md:block">to</span>
-              <div className="w-full md:flex-1">
-                <label className="block text-xs text-navy-500 mb-1 md:hidden">
-                  To Date
-                </label>
-                <input
-                  type="date"
-                  value={customRange.end}
-                  onChange={(e) =>
-                    setCustomRange({ ...customRange, end: e.target.value })
-                  }
-                  className="input-field py-2 text-sm w-full"
-                />
-              </div>
+            <div className="flex items-center gap-2 px-2 py-1 bg-cream-50 rounded-xl border border-cream-200 text-xs">
+              <input
+                type="date"
+                value={customRange.start}
+                onChange={(e) =>
+                  setCustomRange({ ...customRange, start: e.target.value })
+                }
+                className="bg-transparent font-mono text-navy-800 focus:outline-none"
+              />
+              <span className="text-navy-400">→</span>
+              <input
+                type="date"
+                value={customRange.end}
+                onChange={(e) =>
+                  setCustomRange({ ...customRange, end: e.target.value })
+                }
+                className="bg-transparent font-mono text-navy-800 focus:outline-none"
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Revenue Hero Cards */}
+      {/* Revenue High-Impact Trio Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+        {/* Total Revenue Card */}
         <motion.div
-          className="rounded-2xl shadow-lg p-6 bg-linear-to-br from-navy-900 to-navy-800 text-white"
           whileHover={{ y: -2 }}
+          className="rounded-2xl p-6 bg-linear-to-br from-navy-950 via-navy-900 to-navy-950 text-white shadow-elevated border border-navy-800 relative overflow-hidden"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <IndianRupee className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-saffron-400">
+                <IndianRupee className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-navy-300 font-semibold">
+                  Total Enterprise Pipeline
+                </p>
+                <p className="text-[11px] text-navy-400">Billed + Unbilled Potential</p>
+              </div>
             </div>
-            <span className="text-white/80">Total Revenue</span>
+            <span className="badge bg-white/10 text-white border-white/20 text-xs">
+              Lifetime Gross
+            </span>
           </div>
-          <p className="font-display text-3xl lg:text-4xl font-bold">
+
+          <p className="font-mono text-3xl lg:text-4xl font-bold tracking-tight mb-3">
             {formatCurrency(revenueStats.total)}
           </p>
-          <p className="text-white/60 text-sm mt-2">
-            Billed + Unbilled potential
-          </p>
+
+          <div className="pt-3 border-t border-navy-800/80 flex items-center justify-between text-xs text-navy-300">
+            <span>Billed: {formatCurrency(revenueStats.billed)}</span>
+            <span>Pending: {formatCurrency(revenueStats.unbilled)}</span>
+          </div>
         </motion.div>
 
+        {/* Billed Revenue Card */}
         <motion.div
-          className="rounded-2xl shadow-lg p-6 bg-linear-to-br from-emerald-500 to-emerald-600 text-white"
           whileHover={{ y: -2 }}
+          className="rounded-2xl p-6 bg-white text-navy-900 shadow-soft border border-emerald-200/90 relative overflow-hidden"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <CheckCircle className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-navy-400 font-semibold">
+                  Settled Invoices
+                </p>
+                <p className="text-[11px] text-navy-500">From {filteredInvoices.length} generated invoices</p>
+              </div>
             </div>
-            <span className="text-white/80">Billed Revenue</span>
+            <span className="badge badge-emerald text-xs font-semibold">
+              Billed
+            </span>
           </div>
-          <p className="font-display text-3xl lg:text-4xl font-bold">
+
+          <p className="font-mono text-3xl lg:text-4xl font-bold text-navy-950 tracking-tight mb-3">
             {formatCurrency(revenueStats.billed)}
           </p>
-          <p className="text-white/60 text-sm mt-2">
-            From {filteredInvoices.length} invoices
-          </p>
+
+          <div className="pt-3 border-t border-cream-200 flex items-center justify-between text-xs text-navy-500">
+            <span>Avg Value: {formatCurrency(stats.avgInvoiceValue)}</span>
+            <Link href="/invoice" className="text-emerald-700 font-semibold hover:underline">
+              View invoices →
+            </Link>
+          </div>
         </motion.div>
 
+        {/* Unbilled Revenue Card */}
         <motion.div
-          className="rounded-2xl shadow-lg p-6 bg-linear-to-br from-saffron-500 to-orange-500 text-white"
           whileHover={{ y: -2 }}
+          className="rounded-2xl p-6 bg-white text-navy-900 shadow-soft border border-saffron-200/90 relative overflow-hidden"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-saffron-50 border border-saffron-200 flex items-center justify-center text-saffron-600">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-navy-400 font-semibold">
+                  Unbilled Potential
+                </p>
+                <p className="text-[11px] text-navy-500">From {unbilledEntries.length} completed trips</p>
+              </div>
             </div>
-            <span className="text-white/80">Unbilled Revenue</span>
+            <span className="badge badge-saffron text-xs font-semibold">
+              Action Required
+            </span>
           </div>
-          <p className="font-display text-3xl lg:text-4xl font-bold">
+
+          <p className="font-mono text-3xl lg:text-4xl font-bold text-saffron-700 tracking-tight mb-3">
             {formatCurrency(revenueStats.unbilled)}
           </p>
-          <p className="text-white/60 text-sm mt-2">
-            From {unbilledEntries.length} entries
-          </p>
+
+          <div className="pt-3 border-t border-cream-200 flex items-center justify-between text-xs">
+            <span className="text-navy-500">Ready to bill</span>
+            <Link href="/invoice" className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline">
+              Generate invoices now →
+            </Link>
+          </div>
         </motion.div>
       </div>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 lg:gap-4">
-        <StatCard
+      {/* KPI Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3.5 lg:gap-4">
+        <MetricCard
           icon={FileText}
-          label="Entries"
+          label="Total Entries"
           value={stats.totalEntries.toString()}
+          helper="Duty Slips"
         />
-        <StatCard
+        <MetricCard
           icon={Calendar}
-          label="Days"
+          label="Duty Days"
           value={stats.totalDays.toString()}
+          helper="Billable Days"
         />
-        <StatCard
-          icon={BarChart3}
-          label="Invoices"
-          value={stats.totalInvoices.toString()}
-        />
-        <StatCard
+        <MetricCard
           icon={MapPin}
-          label="Total KMs"
-          value={stats.totalKms.toLocaleString()}
+          label="Total Kilometers"
+          value={`${stats.totalKms.toLocaleString()} km`}
+          helper="Distance Run"
         />
-        <StatCard
-          icon={Clock}
-          label="Total Hours"
-          value={stats.totalHours.toFixed(0)}
-        />
-        <StatCard
+        <MetricCard
           icon={TrendingUp}
-          label="Extra KMs"
-          value={stats.totalExtraKms.toLocaleString()}
+          label="Extra Distance"
+          value={`+${stats.totalExtraKms.toLocaleString()} km`}
+          helper="Over Base Packages"
         />
-        <StatCard
+        <MetricCard
           icon={Clock}
-          label="Extra Hours"
-          value={stats.totalExtraHours.toFixed(0)}
+          label="Extra Waiting"
+          value={`${stats.totalExtraHours.toFixed(1)} hrs`}
+          helper="Overtime Logged"
         />
-        <StatCard
+        <MetricCard
           icon={IndianRupee}
-          label="Avg Invoice"
-          value={formatCurrency(stats.avgInvoiceValue).replace("₹ ", "")}
+          label="Tolls & Parking"
+          value={formatCurrency(stats.totalTollParking).replace("₹", "").trim()}
+          prefix="₹"
+          helper="Direct Expenses"
         />
       </div>
 
-      {/* Charts Section */}
+      {/* Visual Analytics Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Pie Chart */}
-        <div className="card p-4 lg:p-6">
-          <h3 className="font-display text-lg font-semibold text-navy-900 mb-4">
-            Revenue Breakdown
-          </h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={revenuePieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {revenuePieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span className="text-sm text-navy-600">
-                Billed (
-                {revenueStats.total > 0
-                  ? ((revenueStats.billed / revenueStats.total) * 100).toFixed(
-                      0
-                    )
-                  : 0}
-                %)
-              </span>
+        {/* Revenue Breakdown Donut Chart */}
+        <div className="card p-5 lg:p-6 border border-cream-200/90 shadow-subtle flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-cream-200/80">
+              <div className="flex items-center gap-2">
+                <PieChartIcon className="w-4 h-4 text-saffron-600" />
+                <h3 className="font-display text-base font-bold text-navy-950">
+                  Revenue Realization Ratio
+                </h3>
+              </div>
+              <span className="text-xs text-navy-400 font-medium">Billed vs Unbilled</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-saffron-500" />
-              <span className="text-sm text-navy-600">
-                Unbilled (
-                {revenueStats.total > 0
-                  ? (
-                      (revenueStats.unbilled / revenueStats.total) *
-                      100
-                    ).toFixed(0)
-                  : 0}
-                %)
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* Client Revenue Bar Chart */}
-        <div className="card p-4 lg:p-6">
-          <h3 className="font-display text-lg font-semibold text-navy-900 mb-4">
-            Top Clients by Revenue
-          </h3>
-          <div className="h-64">
-            {clientRevenueData.length > 0 ? (
+            <div className="h-56 relative flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={clientRevenueData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e5e5e5"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11 }}
-                    interval={0}
-                    angle={-20}
-                    textAnchor="end"
-                    height={50}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`}
-                    tick={{ fontSize: 11 }}
-                  />
+                <PieChart>
+                  <Pie
+                    data={revenuePieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={86}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {revenuePieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
                   <Tooltip
                     formatter={(value) => formatCurrency(Number(value))}
-                    labelStyle={{ color: "#1e3a5f" }}
                     contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid #e5e5e5",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      backgroundColor: "#ffffff",
+                      borderRadius: "12px",
+                      border: "1px solid #f5e9d4",
+                      boxShadow: "0 10px 25px -4px rgba(16, 42, 67, 0.12)",
+                      fontSize: "12px",
+                      fontWeight: "600",
                     }}
                   />
-                  <Bar dataKey="revenue" fill="#f97316" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                </PieChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-navy-400">
-                No invoice data available
+
+              {/* Center Donut Label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider">
+                  Realized
+                </span>
+                <span className="font-mono text-xl font-bold text-navy-900">
+                  {revenueStats.total > 0
+                    ? `${((revenueStats.billed / revenueStats.total) * 100).toFixed(0)}%`
+                    : "0%"}
+                </span>
               </div>
-            )}
+            </div>
           </div>
+
+          <div className="flex items-center justify-around pt-3 border-t border-cream-200/70 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-navy-600 font-medium">
+                Billed ({formatCurrency(revenueStats.billed)})
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-saffron-500" />
+              <span className="text-navy-600 font-medium">
+                Unbilled ({formatCurrency(revenueStats.unbilled)})
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Clients by Revenue Bar Chart */}
+        <div className="card p-5 lg:p-6 border border-cream-200/90 shadow-subtle flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-cream-200/80">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-saffron-600" />
+                <h3 className="font-display text-base font-bold text-navy-950">
+                  Top Clients by Billed Revenue
+                </h3>
+              </div>
+              <span className="text-xs text-navy-400 font-medium">Ranked by turnover</span>
+            </div>
+
+            <div className="h-56">
+              {clientRevenueData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={clientRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#f1ede6"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: "#627d98" }}
+                      interval={0}
+                      angle={-15}
+                      textAnchor="end"
+                    />
+                    <YAxis
+                      tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                      tick={{ fontSize: 11, fill: "#627d98" }}
+                    />
+                    <Tooltip
+                      formatter={(value) => formatCurrency(Number(value))}
+                      contentStyle={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #f5e9d4",
+                        boxShadow: "0 10px 25px -4px rgba(16, 42, 67, 0.12)",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                      }}
+                    />
+                    <Bar dataKey="revenue" fill="#ea580c" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-navy-400 text-xs">
+                  <BarChart3 className="w-8 h-8 mb-2 text-cream-400" />
+                  <span>No client invoice data recorded yet</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-navy-400 text-center pt-3 border-t border-cream-200/70">
+            Computed from active customer invoices in chosen period
+          </p>
         </div>
       </div>
 
-      {/* Unbilled Entries */}
+      {/* Unbilled Actionable Section */}
       {unbilledByClient.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="p-4 lg:p-6 border-b border-cream-200 bg-saffron-50">
-            <h3 className="font-display text-lg font-semibold text-navy-900 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-saffron-500" />
-              Unbilled Entries ({unbilledEntries.length})
-            </h3>
-            <p className="text-sm text-navy-600 mt-1">
-              These entries have not been included in any invoice yet
-            </p>
+        <div className="card overflow-hidden border border-cream-200/90 shadow-soft">
+          <div className="p-5 lg:p-6 border-b border-cream-200/90 bg-linear-to-r from-saffron-50/80 to-cream-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-saffron-600" />
+                <h3 className="font-display text-base lg:text-lg font-bold text-navy-950">
+                  Pending Unbilled Receivables ({unbilledEntries.length} Trips)
+                </h3>
+              </div>
+              <p className="text-xs text-navy-600 mt-1">
+                Completed transport duties ready to be compiled into tax invoices
+              </p>
+            </div>
+            <Link
+              href="/invoice"
+              className="btn-primary text-xs py-2 px-4 shadow-sm"
+            >
+              <span>Batch Generate Invoices</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
+
           <div className="divide-y divide-cream-100">
             {unbilledByClient.map((item) => {
               const isExpanded = expandedClients.has(item.clientId);
@@ -546,52 +627,53 @@ export default function StatisticsPage() {
                 <div key={item.clientId}>
                   <div
                     onClick={() => toggleClientExpand(item.clientId)}
-                    className="p-4 lg:p-6 hover:bg-cream-50 transition-colors cursor-pointer"
+                    className="p-4 lg:p-5 hover:bg-cream-50/70 transition-colors cursor-pointer"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-orange-100 to-orange-200 flex items-center justify-center shrink-0">
-                          <Users className="w-6 h-6 text-orange-600" />
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-saffron-100/80 border border-saffron-200 flex items-center justify-center text-saffron-700 shrink-0">
+                          <Users className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="font-semibold text-navy-900">
+                          <p className="font-bold text-navy-950 text-sm">
                             {item.clientName}
                           </p>
-                          <p className="text-sm text-navy-600 mt-1">
-                            {item.entryCount} unbilled{" "}
-                            {item.entryCount === 1 ? "entry" : "entries"}
+                          <p className="text-xs text-navy-500 mt-0.5">
+                            {item.entryCount} unbilled {item.entryCount === 1 ? "duty slip" : "duty slips"}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 w-full justify-end">
+
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <p className="font-display text-xl lg:text-2xl font-bold text-saffron-600">
+                          <p className="font-mono text-base lg:text-lg font-bold text-saffron-700">
                             {formatCurrency(item.potentialRevenue)}
                           </p>
-                          <p className="text-xs text-navy-500">
+                          <p className="text-[10px] text-navy-400 font-medium uppercase tracking-wider">
                             Potential Revenue
                           </p>
                         </div>
                         <motion.div
                           animate={{ rotate: isExpanded ? 180 : 0 }}
                           transition={{ duration: 0.2 }}
-                          className="w-8 h-8 rounded-lg bg-cream-100 flex items-center justify-center"
+                          className="w-7 h-7 rounded-lg bg-cream-100 flex items-center justify-center text-navy-600"
                         >
-                          <ChevronDown className="w-5 h-5 text-navy-500" />
+                          <ChevronDown className="w-4 h-4" />
                         </motion.div>
                       </div>
                     </div>
                   </div>
+
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden bg-cream-50"
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden bg-cream-50/40 border-t border-cream-200/60"
                       >
-                        <div className="px-4 lg:px-6 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="p-4 lg:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {item.entries.map((entry, index) => {
                             const dayCount = getEntryDayCount(entry);
                             const isMultiDay = dayCount > 1;
@@ -599,107 +681,63 @@ export default function StatisticsPage() {
                               entry.tollParking +
                               (entry.additionalCharges?.reduce(
                                 (s, c) => s + c.amount,
-                                0
+                                0,
                               ) || 0);
-                            return (
-                              <motion.div
-                                key={entry.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.03 }}
-                                className="bg-white rounded-xl p-4 border border-cream-200 hover:shadow-md transition-shadow"
-                              >
-                                {/* Header Row */}
-                                <div className="flex items-start justify-between mb-3">
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Calendar className="w-4 h-4 text-saffron-500" />
-                                      {isMultiDay ? (
-                                        <div className="flex-row justify-start">
-                                          <span className="text-xs text-saffron-600 font-medium">
-                                            {dayCount} days
-                                          </span>
-                                          <div>
-                                            <span className="font-semibold text-navy-900">
-                                              {formatDate(entry.date)}
-                                            </span>
-                                            <span className="text-navy-400 mx-1">
-                                              →
-                                            </span>
-                                            <span className="font-semibold text-navy-900">
-                                              {formatDate(entry.endDate!)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <span className="font-semibold text-navy-900">
-                                          {formatDate(entry.date)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
 
-                                {/* Duty ID */}
-                                <div className="flex items-center gap-2 mb-3 text-sm">
-                                  <Hash className="w-4 h-4 text-navy-400" />
-                                  <span className="font-mono text-navy-600">
-                                    {entry.dutyId}
+                            return (
+                              <div
+                                key={entry.id}
+                                className="bg-white rounded-xl p-3.5 border border-cream-200 shadow-xs space-y-2"
+                              >
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-1.5 font-semibold text-navy-900">
+                                    <Calendar className="w-3.5 h-3.5 text-saffron-600" />
+                                    <span>{formatDate(entry.date)}</span>
+                                    {isMultiDay && (
+                                      <span className="badge badge-saffron text-[10px]">
+                                        {dayCount}d
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="font-mono text-xs text-navy-400">
+                                    #{entry.dutyId}
                                   </span>
                                 </div>
 
-                                {/* Stats Grid */}
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                  {/* KMs */}
-                                  <div className="bg-cream-50 rounded-xl p-3">
-                                    <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                                      <MapPin className="w-3 h-3" />
-                                      Kilometers
-                                    </div>
-                                    <div className="font-mono font-bold text-navy-900">
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                                  <div className="p-2 bg-cream-50 rounded-lg">
+                                    <span className="text-[10px] text-navy-400 block font-semibold">
+                                      Distance
+                                    </span>
+                                    <span className="font-mono font-bold text-navy-800">
                                       {entry.totalKms} km
-                                    </div>
-                                    <div className="text-xs text-navy-400 mt-0.5">
-                                      {entry.startingKms} → {entry.closingKms}
-                                    </div>
+                                    </span>
                                   </div>
-
-                                  {/* Time */}
-                                  <div className="bg-cream-50 rounded-xl p-3">
-                                    <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                                      <Clock className="w-3 h-3" />
+                                  <div className="p-2 bg-cream-50 rounded-lg">
+                                    <span className="text-[10px] text-navy-400 block font-semibold">
                                       Duration
-                                    </div>
-                                    <div className="font-mono font-bold text-navy-900">
+                                    </span>
+                                    <span className="font-mono font-bold text-navy-800">
                                       {entry.totalTime.toFixed(1)} hrs
-                                    </div>
-                                    {isMultiDay && (
-                                      <div className="text-xs text-navy-400 mt-0.5">
-                                        {dayCount} days
-                                      </div>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {(entry.extraKms > 0 || totalCharges > 0) && (
+                                  <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px]">
+                                    {entry.extraKms > 0 && (
+                                      <span className="badge badge-saffron">
+                                        +{entry.extraKms} km extra
+                                      </span>
+                                    )}
+                                    {totalCharges > 0 && (
+                                      <span className="badge badge-navy">
+                                        Toll: {formatCurrency(totalCharges)}
+                                      </span>
                                     )}
                                   </div>
-                                </div>
-
-                                {/* Extras Row */}
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {entry.extraKms > 0 && (
-                                    <span className="badge badge-saffron">
-                                      +{entry.extraKms} km extra
-                                    </span>
-                                  )}
-                                  {entry.extraTime > 0 && (
-                                    <span className="badge badge-saffron">
-                                      +{entry.extraTime.toFixed(1)} hrs extra
-                                    </span>
-                                  )}
-                                  {totalCharges > 0 && (
-                                    <span className="badge badge-navy">
-                                      {formatCurrency(totalCharges)}
-                                    </span>
-                                  )}
-                                </div>
-                              </motion.div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -712,48 +750,44 @@ export default function StatisticsPage() {
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-center pb-2 lg:pb-0 lg:pt-4 border-t border-cream-200"
-      >
-        <p className="text-sm text-navy-600">
-          Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
-          <a
-            href="https://github.com/tanishqmudaliar"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline transition-colors"
-          >
-            Tanishq Mudaliar
-          </a>
-        </p>
-      </motion.div>
     </motion.div>
   );
 }
 
-function StatCard({
+function MetricCard({
   icon: Icon,
   label,
   value,
+  prefix = "",
+  helper,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
+  prefix?: string;
+  helper?: string;
 }) {
   return (
-    <motion.div className="card p-3 lg:p-4" whileHover={{ y: -2 }}>
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4 text-saffron-500" />
-        <span className="text-xs text-navy-500">{label}</span>
+    <div className="card p-3.5 lg:p-4 border border-cream-200/90 shadow-subtle hover:border-saffron-300 transition-all flex flex-col justify-between">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-lg bg-cream-100 flex items-center justify-center text-saffron-600">
+            <Icon className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[11px] font-semibold text-navy-500 uppercase tracking-wider">
+            {label}
+          </span>
+        </div>
+        <p className="font-mono text-lg lg:text-xl font-bold text-navy-950 truncate">
+          {prefix}
+          {value}
+        </p>
       </div>
-      <p className="font-display text-lg lg:text-xl font-bold text-navy-900 truncate">
-        {value}
-      </p>
-    </motion.div>
+      {helper && (
+        <p className="text-[10px] text-navy-400 font-medium pt-1.5 border-t border-cream-100 mt-2">
+          {helper}
+        </p>
+      )}
+    </div>
   );
 }
