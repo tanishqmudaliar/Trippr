@@ -207,6 +207,7 @@ export default function Dashboard() {
           color="green"
           helperText="Settled & invoiced"
           className="col-span-2 sm:col-span-1"
+          valueClassName="text-2xl sm:text-xl lg:text-2xl"
         />
         <StatCard
           icon={ClipboardList}
@@ -524,6 +525,7 @@ function StatCard({
   color,
   helperText,
   className = "",
+  valueClassName,
 }: {
   icon: React.ElementType;
   label: string;
@@ -533,6 +535,7 @@ function StatCard({
   color: "saffron" | "navy" | "green" | "blue" | "purple";
   helperText?: string;
   className?: string;
+  valueClassName?: string;
 }) {
   const colorMap = {
     saffron: {
@@ -576,11 +579,17 @@ function StatCard({
           {label}
         </p>
         <p
-          className="font-mono text-base sm:text-xl lg:text-2xl font-bold text-navy-950 tracking-tight leading-none mb-1 truncate"
+          className={`font-mono ${valueClassName || "text-base sm:text-xl lg:text-2xl"} font-bold text-navy-950 tracking-tight leading-none mb-1 truncate`}
           title={`${prefix || ""}${value}${suffix || ""}`}
         >
           {prefix && (
-            <span className="text-sm sm:text-base lg:text-lg mr-0.5 font-semibold text-navy-700">
+            <span
+              className={`${
+                valueClassName
+                  ? "text-lg sm:text-base lg:text-lg"
+                  : "text-sm sm:text-base lg:text-lg"
+              } mr-0.5 font-semibold text-navy-700`}
+            >
               {prefix}
             </span>
           )}
