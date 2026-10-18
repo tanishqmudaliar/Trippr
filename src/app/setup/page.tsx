@@ -90,6 +90,7 @@ function InputField({
           onChange={onChange}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
+          style={Icon ? { paddingLeft: "2.6rem" } : undefined}
           className={`input-field ${Icon ? "pl-10" : ""} ${
             error ? "border-rose-400 focus:ring-rose-500/20 focus:border-rose-500" : ""
           }`}
@@ -889,6 +890,7 @@ export default function SetupPage() {
                           setCompanyData({ ...companyData, address: e.target.value })
                         }
                         rows={3}
+                        style={{ paddingLeft: "2.6rem" }}
                         className={`input-field pl-10 ${
                           errors.address ? "border-rose-400 focus:ring-rose-500/20" : ""
                         }`}

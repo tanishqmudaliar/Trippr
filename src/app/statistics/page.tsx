@@ -257,11 +257,11 @@ export default function StatisticsPage() {
         </div>
 
         {/* Time Filter Segmented Switch */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-1.5 rounded-2xl border border-cream-200/90 shadow-subtle">
-          <div className="inline-flex p-1 rounded-xl bg-cream-100/90">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-1.5 rounded-2xl border border-cream-200/90 shadow-subtle">
+          <div className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex p-1 rounded-xl bg-cream-100/90">
             <button
               onClick={() => setTimeFilter("all")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 text-center justify-center py-2 sm:py-1.5 px-2 sm:px-3.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "all"
                   ? "bg-white text-saffron-700 shadow-xs"
                   : "text-navy-600 hover:text-navy-900"
@@ -271,7 +271,7 @@ export default function StatisticsPage() {
             </button>
             <button
               onClick={() => setTimeFilter("30days")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 text-center justify-center py-2 sm:py-1.5 px-2 sm:px-3.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "30days"
                   ? "bg-white text-saffron-700 shadow-xs"
                   : "text-navy-600 hover:text-navy-900"
@@ -281,7 +281,7 @@ export default function StatisticsPage() {
             </button>
             <button
               onClick={() => setTimeFilter("custom")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`flex-1 text-center justify-center py-2 sm:py-1.5 px-2 sm:px-3.5 text-xs font-semibold rounded-lg transition-all ${
                 timeFilter === "custom"
                   ? "bg-white text-saffron-700 shadow-xs"
                   : "text-navy-600 hover:text-navy-900"
@@ -292,7 +292,7 @@ export default function StatisticsPage() {
           </div>
 
           {timeFilter === "custom" && (
-            <div className="flex items-center gap-2 px-2 py-1 bg-cream-50 rounded-xl border border-cream-200 text-xs">
+            <div className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3 py-1.5 bg-cream-50 rounded-xl border border-cream-200 text-xs">
               <input
                 type="date"
                 value={customRange.start}

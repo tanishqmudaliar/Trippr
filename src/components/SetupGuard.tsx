@@ -123,8 +123,8 @@ export function SetupGuard({ children }: SetupGuardProps) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 lg:ml-72 p-4 lg:p-8 pt-16 lg:pt-8">
-        <div className="max-w-7xl mx-auto">{children}</div>
+      <main className="flex-1 min-w-0 max-w-full lg:ml-72 p-4 lg:p-8 pt-16 lg:pt-8 overflow-x-hidden">
+        <div className="w-full max-w-7xl mx-auto min-w-0">{children}</div>
       </main>
     </div>
   );
