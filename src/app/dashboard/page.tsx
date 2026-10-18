@@ -197,8 +197,17 @@ export default function Dashboard() {
       {/* Stats Grid - 5 Cards */}
       <motion.div
         variants={item}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 lg:gap-5"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 lg:gap-5"
       >
+        <StatCard
+          icon={IndianRupee}
+          label="Billed Revenue"
+          value={formatCurrency(totalRevenue).replace("₹", "").trim()}
+          prefix="₹"
+          color="green"
+          helperText="Settled & invoiced"
+          className="col-span-2 sm:col-span-1"
+        />
         <StatCard
           icon={ClipboardList}
           label="Total Duties"
@@ -212,14 +221,6 @@ export default function Dashboard() {
           value={totalInvoices.toString()}
           color="navy"
           helperText="Customer billings"
-        />
-        <StatCard
-          icon={IndianRupee}
-          label="Billed Revenue"
-          value={formatCurrency(totalRevenue).replace("₹", "").trim()}
-          prefix="₹"
-          color="green"
-          helperText="Settled & invoiced"
         />
         <StatCard
           icon={TrendingUp}
@@ -488,6 +489,7 @@ function StatCard({
   suffix = "",
   color,
   helperText,
+  className = "",
 }: {
   icon: React.ElementType;
   label: string;
@@ -496,6 +498,7 @@ function StatCard({
   suffix?: string;
   color: "saffron" | "navy" | "green" | "blue" | "purple";
   helperText?: string;
+  className?: string;
 }) {
   const colorMap = {
     saffron: {
@@ -525,28 +528,39 @@ function StatCard({
   return (
     <motion.div
       whileHover={{ y: -2 }}
-      className="card p-4 lg:p-5 flex flex-col justify-between border border-cream-200/90 hover:border-saffron-300 transition-all"
+      className={`card p-3.5 sm:p-4 lg:p-5 flex flex-col justify-between border border-cream-200/90 hover:border-saffron-300 transition-all ${className}`}
     >
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
           <div
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center ${currentTheme.bg}`}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center ${currentTheme.bg}`}
           >
             <Icon className="w-4 h-4" />
           </div>
         </div>
-        <p className="text-navy-400 text-xs font-semibold uppercase tracking-wider mb-1">
+        <p className="text-navy-400 text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-1 truncate">
           {label}
         </p>
-        <p className="font-mono text-xl sm:text-2xl font-bold text-navy-950 tracking-tight leading-none mb-1">
-          {prefix}
-          {value}
-          {suffix}
+        <p
+          className="font-mono text-base sm:text-xl lg:text-2xl font-bold text-navy-950 tracking-tight leading-none mb-1 truncate"
+          title={`${prefix || ""}${value}${suffix || ""}`}
+        >
+          {prefix && (
+            <span className="text-sm sm:text-base lg:text-lg mr-0.5 font-semibold text-navy-700">
+              {prefix}
+            </span>
+          )}
+          <span>{value}</span>
+          {suffix && (
+            <span className="text-[11px] sm:text-xs font-semibold text-navy-500 ml-1">
+              {suffix}
+            </span>
+          )}
         </p>
       </div>
 
       {helperText && (
-        <p className="text-[11px] text-navy-400 font-medium pt-2 border-t border-cream-100 mt-2">
+        <p className="text-[10px] sm:text-[11px] text-navy-400 font-medium pt-1.5 sm:pt-2 border-t border-cream-100 mt-1.5 sm:mt-2 truncate">
           {helperText}
         </p>
       )}
