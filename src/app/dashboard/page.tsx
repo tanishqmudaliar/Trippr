@@ -373,60 +373,88 @@ export default function Dashboard() {
                     (sum, e) => sum + (e.cancelled ? 0 : e.extraKms),
                     0,
                   );
+                  const clientName = getClientName(invoice.clientId);
 
                   return (
                     <motion.div
                       key={invoice.id}
-                      initial={{ opacity: 0, x: -16 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.04 }}
-                      className="p-3 sm:p-3.5 rounded-xl bg-cream-50/70 hover:bg-saffron-50/70 border border-cream-200/80 hover:border-saffron-200/90 transition-all group overflow-hidden min-w-0"
+                      className="p-4 sm:p-5 rounded-2xl bg-cream-50/70 hover:bg-white border border-cream-200/90 hover:border-saffron-300 shadow-2xs hover:shadow-soft transition-all space-y-3.5 group"
                     >
-                      {/* Row 1: Invoice number, client and Total */}
-                      <div className="flex items-start justify-between gap-2.5 mb-2 min-w-0">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
-                            <FileText className="w-4 h-4 text-navy-600" />
+                      {/* Top Bar: Invoice #, Date, Vehicle Plate & Net Total */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+                            <FileText className="w-5 h-5 text-navy-600 group-hover:text-saffron-600 transition-colors" />
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                              <p className="font-semibold text-navy-950 text-xs sm:text-sm shrink-0">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-display text-base font-bold text-navy-950">
                                 #{invoice.invoiceNumber}
-                              </p>
-                              <span className="badge badge-navy text-[10px] truncate max-w-[120px] sm:max-w-[180px]">
-                                {getClientName(invoice.clientId)}
+                              </h3>
+                              <span className="text-xs text-navy-400 font-medium">
+                                ({formatDate(invoice.invoiceDate)})
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-navy-500 mt-0.5 min-w-0 truncate">
-                              <span className="shrink-0">{formatDate(invoice.invoiceDate)}</span>
-                              <span>•</span>
-                              <span className="font-mono text-navy-700 truncate">
+                            <div className="flex items-center gap-2 text-xs text-navy-600 mt-1">
+                              <Car className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+                              <span className="font-mono font-medium text-navy-800">
                                 {invoice.vehicleNumberForInvoice || "Fleet vehicle"}
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <p className="font-mono text-xs sm:text-sm font-bold text-saffron-700">
+                        {/* Net Billed Total Pill */}
+                        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between">
+                          <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                            Net Billed Total
+                          </span>
+                          <span className="font-mono text-base sm:text-lg font-bold text-saffron-700 leading-tight">
                             {formatCurrency(invoice.roundedTotal)}
-                          </p>
-                          <p className="text-[9px] sm:text-[10px] text-navy-400 font-medium">Net Amount</p>
+                          </span>
                         </div>
                       </div>
 
-                      {/* Row 2: Metrics and Badges */}
-                      <div className="flex items-center gap-1.5 sm:gap-2 sm:ml-11 flex-wrap text-xs pt-1.5 border-t border-cream-200/60 min-w-0">
-                        <span className="badge badge-cream text-[10px] shrink-0">
-                          {invoice.entryIds.length} {invoice.entryIds.length === 1 ? "trip" : "trips"} ({totalDays}d)
-                        </span>
-                        <span className="font-mono text-[10px] sm:text-[11px] text-navy-700 font-medium shrink-0">
-                          {totalKms} km • {formatDuration(totalHours)}
-                        </span>
-                        {totalExtraKms > 0 && (
-                          <span className="badge badge-saffron text-[10px] shrink-0">
-                            +{totalExtraKms} extra km
+                      {/* Middle Row: Client Information without truncation */}
+                      <div className="pt-2 border-t border-cream-200/60 flex items-start gap-2.5">
+                        <Building2 className="w-4 h-4 text-navy-400 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                            Billed Client
                           </span>
+                          <p className="text-sm font-semibold text-navy-900 break-words leading-snug">
+                            {clientName}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: Operational Metrics Pills */}
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-cream-200/80 text-navy-700 text-xs shadow-2xs">
+                          <ClipboardList className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                          <span className="font-medium">
+                            {invoice.entryIds.length} {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
+                          </span>
+                          <span className="text-navy-300">•</span>
+                          <span className="text-navy-500 font-medium">
+                            {totalDays} {totalDays === 1 ? "day" : "days"}
+                          </span>
+                        </div>
+
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
+                          <span>{totalKms} km</span>
+                          <span className="text-navy-300">•</span>
+                          <span>{formatDuration(totalHours)}</span>
+                        </div>
+
+                        {totalExtraKms > 0 && (
+                          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
+                            <TrendingUp className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                            <span>+{totalExtraKms} extra km</span>
+                          </div>
                         )}
                       </div>
                     </motion.div>
@@ -437,10 +465,16 @@ export default function Dashboard() {
           </div>
 
           {recentInvoices.length > 0 && (
-            <div className="pt-3.5 sm:pt-4 mt-4 border-t border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-navy-500">
-              <span className="text-[11px] sm:text-xs">Showing last {recentInvoices.length} of {invoices.length} invoices</span>
-              <Link href="/invoice" className="font-semibold text-saffron-600 hover:underline text-[11px] sm:text-xs">
-                View all generated invoices →
+            <div className="pt-4 mt-5 border-t border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-navy-500">
+              <span className="text-[11px] sm:text-xs">
+                Showing latest {recentInvoices.length} of {invoices.length} recorded invoices
+              </span>
+              <Link
+                href="/invoice"
+                className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline flex items-center gap-1 text-[11px] sm:text-xs"
+              >
+                <span>Open Invoice Center</span>
+                <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
           )}
