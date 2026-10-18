@@ -18,6 +18,7 @@ import {
   Phone,
   Mail,
   HardDrive,
+  Cloud,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -33,6 +34,28 @@ export function Sidebar() {
   const pathname = usePathname();
   const { companyInfo, entries, invoices, backupConfig } = useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
+
+  // Monitor Google Drive authentication status
+  useEffect(() => {
+    const checkDriveStatus = () => {
+      try {
+        const stored = localStorage.getItem("trippr-google-auth");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setIsDriveConnected(!!(parsed?.accessToken || parsed?.refreshToken));
+        } else {
+          setIsDriveConnected(false);
+        }
+      } catch {
+        setIsDriveConnected(false);
+      }
+    };
+
+    checkDriveStatus();
+    window.addEventListener("storage", checkDriveStatus);
+    return () => window.removeEventListener("storage", checkDriveStatus);
+  }, [pathname]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -176,18 +199,33 @@ export function Sidebar() {
       <div className="p-3 mx-3 mb-2 rounded-xl bg-cream-50/80 border border-cream-200/80">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-navy-800">
-            <HardDrive className="w-3.5 h-3.5 text-saffron-600" />
+            {isDriveConnected ? (
+              <Cloud className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            ) : (
+              <HardDrive className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+            )}
             <span>Storage Status</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Local-First
-          </span>
+          {isDriveConnected ? (
+            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/80 flex items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Local + Cloud
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Local-First
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-navy-500 leading-tight">
-          {backupConfig?.lastBackupAt
-            ? `Backed up ${new Date(backupConfig.lastBackupAt).toLocaleDateString()}`
-            : "Offline-ready • Data stays on device"}
+          {isDriveConnected
+            ? backupConfig?.lastBackupAt
+              ? `Cloud synced ${new Date(backupConfig.lastBackupAt).toLocaleDateString()}`
+              : "Google Drive active • Auto-sync enabled"
+            : backupConfig?.lastBackupAt
+              ? `Backed up ${new Date(backupConfig.lastBackupAt).toLocaleDateString()}`
+              : "Offline-ready • Data stays on device"}
         </p>
       </div>
 
