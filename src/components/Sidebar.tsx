@@ -71,7 +71,7 @@ export function Sidebar() {
       `}</style>
 
       {/* Brand Header */}
-      <div className="p-5 border-b border-cream-200/90 bg-linear-to-b from-cream-50/50 to-white">
+      <div className="p-5 pr-12 lg:pr-5 border-b border-cream-200/90 bg-linear-to-b from-cream-50/50 to-white">
         <Link href="/dashboard" className="flex items-center gap-3.5 group">
           <motion.div
             whileHover={{ scale: 1.04 }}
@@ -94,9 +94,9 @@ export function Sidebar() {
           </motion.div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <h1 className="font-display text-base font-bold text-navy-900 tracking-tight truncate leading-tight">
+            <div className="flex items-start gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 mt-1" />
+              <h1 className="font-display text-sm sm:text-base font-bold text-navy-900 tracking-tight leading-snug break-words">
                 {companyName}
               </h1>
             </div>
