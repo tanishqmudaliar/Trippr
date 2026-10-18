@@ -243,7 +243,7 @@ export default function Dashboard() {
       {/* Recent Sections Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Duty Entries */}
-        <motion.div variants={item} className="card p-5 lg:p-6 flex flex-col justify-between">
+        <motion.div variants={item} className="card p-3.5 sm:p-5 lg:p-6 flex flex-col justify-between overflow-hidden min-w-0">
           <div>
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-cream-200/80">
               <div className="flex items-center gap-2.5">
@@ -300,9 +300,9 @@ export default function Dashboard() {
           </div>
 
           {recentEntries.length > 0 && (
-            <div className="pt-4 mt-4 border-t border-cream-200/80 flex items-center justify-between text-xs text-navy-500">
-              <span>Showing last {recentEntries.length} of {entries.length} entries</span>
-              <Link href="/entries" className="font-semibold text-saffron-600 hover:underline">
+            <div className="pt-3.5 sm:pt-4 mt-4 border-t border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-navy-500">
+              <span className="text-[11px] sm:text-xs">Showing last {recentEntries.length} of {entries.length} entries</span>
+              <Link href="/entries" className="font-semibold text-saffron-600 hover:underline text-[11px] sm:text-xs">
                 Manage all duty slips →
               </Link>
             </div>
@@ -310,7 +310,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Recent Invoices */}
-        <motion.div variants={item} className="card p-5 lg:p-6 flex flex-col justify-between">
+        <motion.div variants={item} className="card p-3.5 sm:p-5 lg:p-6 flex flex-col justify-between overflow-hidden min-w-0">
           <div>
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-cream-200/80">
               <div className="flex items-center gap-2.5">
@@ -380,27 +380,27 @@ export default function Dashboard() {
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.04 }}
-                      className="p-3.5 rounded-xl bg-cream-50/70 hover:bg-saffron-50/70 border border-cream-200/80 hover:border-saffron-200/90 transition-all group"
+                      className="p-3 sm:p-3.5 rounded-xl bg-cream-50/70 hover:bg-saffron-50/70 border border-cream-200/80 hover:border-saffron-200/90 transition-all group overflow-hidden min-w-0"
                     >
                       {/* Row 1: Invoice number, client and Total */}
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
+                      <div className="flex items-start justify-between gap-2.5 mb-2 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
                             <FileText className="w-4 h-4 text-navy-600" />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-navy-950 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                              <p className="font-semibold text-navy-950 text-xs sm:text-sm shrink-0">
                                 #{invoice.invoiceNumber}
                               </p>
-                              <span className="badge badge-navy text-[10px]">
+                              <span className="badge badge-navy text-[10px] truncate max-w-[120px] sm:max-w-[180px]">
                                 {getClientName(invoice.clientId)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-[11px] text-navy-500 mt-0.5">
-                              <span>{formatDate(invoice.invoiceDate)}</span>
+                            <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-navy-500 mt-0.5 min-w-0 truncate">
+                              <span className="shrink-0">{formatDate(invoice.invoiceDate)}</span>
                               <span>•</span>
-                              <span className="font-mono text-navy-700">
+                              <span className="font-mono text-navy-700 truncate">
                                 {invoice.vehicleNumberForInvoice || "Fleet vehicle"}
                               </span>
                             </div>
@@ -408,23 +408,23 @@ export default function Dashboard() {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <p className="font-mono text-sm font-bold text-saffron-700">
+                          <p className="font-mono text-xs sm:text-sm font-bold text-saffron-700">
                             {formatCurrency(invoice.roundedTotal)}
                           </p>
-                          <p className="text-[10px] text-navy-400 font-medium">Net Amount</p>
+                          <p className="text-[9px] sm:text-[10px] text-navy-400 font-medium">Net Amount</p>
                         </div>
                       </div>
 
                       {/* Row 2: Metrics and Badges */}
-                      <div className="flex items-center gap-2 ml-12 flex-wrap text-xs pt-1 border-t border-cream-200/60">
-                        <span className="badge badge-cream text-[10px]">
+                      <div className="flex items-center gap-1.5 sm:gap-2 sm:ml-11 flex-wrap text-xs pt-1.5 border-t border-cream-200/60 min-w-0">
+                        <span className="badge badge-cream text-[10px] shrink-0">
                           {invoice.entryIds.length} {invoice.entryIds.length === 1 ? "trip" : "trips"} ({totalDays}d)
                         </span>
-                        <span className="font-mono text-[11px] text-navy-700 font-medium">
+                        <span className="font-mono text-[10px] sm:text-[11px] text-navy-700 font-medium shrink-0">
                           {totalKms} km • {formatDuration(totalHours)}
                         </span>
                         {totalExtraKms > 0 && (
-                          <span className="badge badge-saffron text-[10px]">
+                          <span className="badge badge-saffron text-[10px] shrink-0">
                             +{totalExtraKms} extra km
                           </span>
                         )}
@@ -437,9 +437,9 @@ export default function Dashboard() {
           </div>
 
           {recentInvoices.length > 0 && (
-            <div className="pt-4 mt-4 border-t border-cream-200/80 flex items-center justify-between text-xs text-navy-500">
-              <span>Showing last {recentInvoices.length} of {invoices.length} invoices</span>
-              <Link href="/invoice" className="font-semibold text-saffron-600 hover:underline">
+            <div className="pt-3.5 sm:pt-4 mt-4 border-t border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-navy-500">
+              <span className="text-[11px] sm:text-xs">Showing last {recentInvoices.length} of {invoices.length} invoices</span>
+              <Link href="/invoice" className="font-semibold text-saffron-600 hover:underline text-[11px] sm:text-xs">
                 View all generated invoices →
               </Link>
             </div>
