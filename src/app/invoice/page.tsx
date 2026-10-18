@@ -59,27 +59,27 @@ export default function InvoicePage() {
         </div>
 
         {/* Tab Buttons */}
-        <div className="inline-flex p-1 rounded-xl bg-white border border-cream-200/90 shadow-subtle">
+        <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-white border border-cream-200/90 shadow-subtle">
           <button
             onClick={() => setActiveTab("create")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === "create"
                 ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
                 : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
             }`}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 shrink-0" />
             <span>Create Invoice</span>
           </button>
           <button
             onClick={() => setActiveTab("edit")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === "edit"
                 ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
                 : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 shrink-0" />
             <span>Manage Invoices</span>
           </button>
         </div>

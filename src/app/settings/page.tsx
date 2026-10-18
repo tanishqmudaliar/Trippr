@@ -843,7 +843,7 @@ export default function SettingsPage() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="space-y-6 lg:space-y-8 pb-12"
+        className="w-full max-w-full min-w-0 space-y-6 lg:space-y-8 pb-12 overflow-x-hidden"
       >
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-cream-200/80">
@@ -873,122 +873,124 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab Navigation Bar */}
-        <div className="flex items-center gap-1 sm:gap-2 border-b border-cream-200/80 overflow-x-auto no-scrollbar py-1">
-          <button
-            onClick={() => handleTabChange("company")}
-            className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-              activeTab === "company"
-                ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
-                : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Company & Branding</span>
-            {activeTab === "company" && (
-              <motion.div
-                layoutId="activeSettingsTab"
-                className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
+        <div className="w-full max-w-full overflow-x-auto no-scrollbar border-b border-cream-200/80 pb-1">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-max py-0.5">
+            <button
+              onClick={() => handleTabChange("company")}
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+                activeTab === "company"
+                  ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Company & Branding</span>
+              {activeTab === "company" && (
+                <motion.div
+                  layoutId="activeSettingsTab"
+                  className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </button>
 
-          <button
-            onClick={() => handleTabChange("vehicles")}
-            className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-              activeTab === "vehicles"
-                ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
-                : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
-            }`}
-          >
-            <Car className="w-4 h-4" />
-            <span>Fleet & Vehicles</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+            <button
+              onClick={() => handleTabChange("vehicles")}
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
                 activeTab === "vehicles"
-                  ? "bg-saffron-200 text-saffron-900"
-                  : "bg-cream-200/80 text-navy-600"
+                  ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
               }`}
             >
-              {vehicles.length}
-            </span>
-            {activeTab === "vehicles" && (
-              <motion.div
-                layoutId="activeSettingsTab"
-                className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
+              <Car className="w-4 h-4" />
+              <span>Fleet & Vehicles</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+                  activeTab === "vehicles"
+                    ? "bg-saffron-200 text-saffron-900"
+                    : "bg-cream-200/80 text-navy-600"
+                }`}
+              >
+                {vehicles.length}
+              </span>
+              {activeTab === "vehicles" && (
+                <motion.div
+                  layoutId="activeSettingsTab"
+                  className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </button>
 
-          <button
-            onClick={() => handleTabChange("clients")}
-            className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-              activeTab === "clients"
-                ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
-                : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Clients & Rates</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+            <button
+              onClick={() => handleTabChange("clients")}
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
                 activeTab === "clients"
-                  ? "bg-saffron-200 text-saffron-900"
-                  : "bg-cream-200/80 text-navy-600"
+                  ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
               }`}
             >
-              {clients.length}
-            </span>
-            {activeTab === "clients" && (
-              <motion.div
-                layoutId="activeSettingsTab"
-                className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
+              <Users className="w-4 h-4" />
+              <span>Clients & Rates</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+                  activeTab === "clients"
+                    ? "bg-saffron-200 text-saffron-900"
+                    : "bg-cream-200/80 text-navy-600"
+                }`}
+              >
+                {clients.length}
+              </span>
+              {activeTab === "clients" && (
+                <motion.div
+                  layoutId="activeSettingsTab"
+                  className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </button>
 
-          <button
-            onClick={() => handleTabChange("sync")}
-            className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-              activeTab === "sync"
-                ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
-                : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
-            }`}
-          >
-            <Cloud className="w-4 h-4" />
-            <span>Cloud & Backups</span>
-            {googleAuth?.accessToken && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            )}
-            {activeTab === "sync" && (
-              <motion.div
-                layoutId="activeSettingsTab"
-                className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
+            <button
+              onClick={() => handleTabChange("sync")}
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+                activeTab === "sync"
+                  ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
+              }`}
+            >
+              <Cloud className="w-4 h-4" />
+              <span>Cloud & Backups</span>
+              {googleAuth?.accessToken && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              )}
+              {activeTab === "sync" && (
+                <motion.div
+                  layoutId="activeSettingsTab"
+                  className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </button>
 
-          <button
-            onClick={() => handleTabChange("preferences")}
-            className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-              activeTab === "preferences"
-                ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
-                : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Preferences</span>
-            {activeTab === "preferences" && (
-              <motion.div
-                layoutId="activeSettingsTab"
-                className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
+            <button
+              onClick={() => handleTabChange("preferences")}
+              className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+                activeTab === "preferences"
+                  ? "text-saffron-700 bg-saffron-50/80 shadow-xs"
+                  : "text-navy-600 hover:text-navy-900 hover:bg-cream-100/60"
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Preferences</span>
+              {activeTab === "preferences" && (
+                <motion.div
+                  layoutId="activeSettingsTab"
+                  className="absolute inset-0 rounded-xl border border-saffron-300/60 pointer-events-none"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Tab 1: Company Information & Invoice Branding */}
@@ -1477,7 +1479,7 @@ export default function SettingsPage() {
                         </span>
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-cream-50/70 border border-cream-200/70 sm:col-span-2">
+                      <div className="p-2.5 rounded-xl bg-cream-50/70 border border-cream-200/70 col-span-2 sm:col-span-2">
                         <span className="text-[10px] uppercase font-semibold text-navy-500 block">
                           Tax Specification
                         </span>
@@ -1574,15 +1576,15 @@ export default function SettingsPage() {
                   {/* Connected Status Strip */}
                   <div className="p-4 rounded-xl bg-linear-to-r from-emerald-50/80 to-cream-50/80 border border-emerald-200/80">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                           <CheckCircle className="w-5 h-5 text-emerald-600" />
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-navy-950">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-navy-950 truncate">
                             {googleAuth.name || "Authenticated Google Account"}
                           </p>
-                          <p className="text-[11px] text-navy-500 font-mono">
+                          <p className="text-[11px] text-navy-500 font-mono truncate">
                             {googleAuth.email || "Google Drive Active"}
                           </p>
                         </div>

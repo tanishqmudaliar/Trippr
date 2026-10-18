@@ -315,19 +315,20 @@ export default function LandingPage() {
             className="card p-4 sm:p-7 shadow-floating border border-cream-300 bg-white"
           >
             {/* Window Topbar */}
-            <div className="flex items-center justify-between pb-4 mb-6 border-b border-cream-200/80">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-400/80" />
-                <span className="w-3 h-3 rounded-full bg-amber-400/80" />
-                <span className="w-3 h-3 rounded-full bg-emerald-400/80" />
-                <span className="ml-2 text-xs font-mono font-medium text-navy-400">
+            <div className="flex items-center justify-between gap-2 pb-4 mb-6 border-b border-cream-200/80 overflow-hidden">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-400/80 shrink-0" />
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-400/80 shrink-0" />
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400/80 shrink-0" />
+                <span className="ml-1 sm:ml-2 text-[11px] sm:text-xs font-mono font-medium text-navy-400 truncate">
                   trippr.app/dashboard
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="badge badge-emerald text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Fleet System Active
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="badge badge-emerald text-[11px] sm:text-xs py-0.5 px-2 whitespace-nowrap shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="hidden sm:inline">Fleet System Active</span>
+                  <span className="inline sm:hidden">Fleet Active</span>
                 </span>
               </div>
             </div>
