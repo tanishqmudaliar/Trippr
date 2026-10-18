@@ -13,20 +13,20 @@ import {
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-linear-to-br from-cream-50 via-white to-saffron-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+    <div className="min-h-screen bg-cream-50 py-8 sm:py-12 lg:py-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-navy-600 hover:text-saffron-600 mb-8 lg:mb-12 transition-colors font-medium group"
+          className="inline-flex items-center gap-2 text-navy-600 hover:text-saffron-600 mb-8 transition-colors font-medium group text-sm"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Home
         </Link>
 
         {/* Header Card */}
-        <div className="bg-white rounded-2xl shadow-lg border-2 border-cream-200 p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="card p-6 sm:p-8 lg:p-10 mb-6 border border-cream-200/90 shadow-soft">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 mb-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-linear-to-br from-saffron-500 to-saffron-600 flex items-center justify-center shadow-lg shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-linear-to-br from-saffron-500 to-saffron-600 flex items-center justify-center shadow-soft shrink-0">
               <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
             <div className="flex-1">
@@ -38,7 +38,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </div>
           </div>
-          <p className="text-navy-600 text-base sm:text-lg leading-relaxed border-t-2 border-cream-100 pt-6 mt-6">
+          <p className="text-navy-600 text-base sm:text-lg leading-relaxed border-t border-cream-100 pt-6 mt-6">
             At Trippr, we take your privacy seriously. This policy explains how
             we handle your data with complete transparency and respect for your
             privacy.
@@ -46,7 +46,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-2xl shadow-lg border-2 border-cream-200 divide-y-2 divide-cream-100">
+        <div className="card border border-cream-200/90 divide-y divide-cream-100 shadow-soft">
           {/* Section 1 */}
           <section className="p-6 sm:p-8 lg:p-10">
             <div className="flex items-start gap-4 mb-5">
@@ -80,7 +80,7 @@ export default function PrivacyPolicyPage() {
 
                 <div className="space-y-5">
                   {/* Local Storage */}
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3 mb-3">
                       <Database className="w-5 h-5 text-saffron-600 shrink-0 mt-0.5" />
                       <h3 className="font-semibold text-navy-900 text-base sm:text-lg">
@@ -96,7 +96,7 @@ export default function PrivacyPolicyPage() {
                   </div>
 
                   {/* Cloud Sync */}
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3 mb-3">
                       <Cloud className="w-5 h-5 text-saffron-600 shrink-0 mt-0.5" />
                       <h3 className="font-semibold text-navy-900 text-base sm:text-lg">

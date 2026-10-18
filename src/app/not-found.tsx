@@ -2,140 +2,81 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { MapPin, ArrowLeft, Home } from "lucide-react";
+import { MapPin, ArrowLeft, Home, Compass } from "lucide-react";
 
 export default function NotFound() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
-
-  const floatingVariants = {
-    hidden: { opacity: 0, scale: 0.8 },
-    show: {
-      opacity: 1,
-      scale: 1,
-      transition: { duration: 0.6 },
-    },
-  };
-
-  const floatingAnimation = {
-    y: [-10, 10, -10],
-    transition: { duration: 4, repeat: Infinity, ease: "easeInOut" as const },
-  };
-
   return (
-    <div className="min-h-screen card bg-linear-to-br from-cream-50 via-white to-saffron-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-cream-50 flex items-center justify-center p-4 selection:bg-saffron-200">
       <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-        className="text-center max-w-2xl"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="text-center max-w-lg w-full"
       >
-        {/* Floating 404 Icon */}
-        <motion.div
-          variants={floatingVariants}
-          initial="hidden"
-          animate="show"
-          className="mb-8 flex justify-center"
-        >
-          <motion.div
-            animate={floatingAnimation}
-            className="flex justify-center"
-          >
-            <div className="relative">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 bg-linear-to-r from-saffron-500/20 to-transparent rounded-full blur-xl"
-              />
-              <div className="relative w-32 h-32 bg-linear-to-br from-saffron-100 to-cream-200 rounded-3xl flex items-center justify-center shadow-xl shadow-saffron-500/20">
-                <MapPin className="w-16 h-16 text-saffron-600" />
-              </div>
+        {/* Floating 404 Compass Icon */}
+        <div className="mb-8 flex justify-center">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-3xl bg-linear-to-br from-saffron-100 to-cream-200 border border-saffron-200 flex items-center justify-center shadow-soft">
+              <Compass className="w-12 h-12 text-saffron-600 animate-spin-slow" />
             </div>
-          </motion.div>
-        </motion.div>
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-navy-900 text-white flex items-center justify-center font-mono text-xs font-bold shadow-md">
+              404
+            </div>
+          </div>
+        </div>
 
         {/* Heading */}
-        <motion.div variants={itemVariants} className="mb-4">
-          <h1 className="font-display text-6xl lg:text-7xl font-bold text-transparent bg-clip-text bg-linear-to-r from-saffron-600 to-navy-900 mb-3">
-            404
+        <div className="mb-4">
+          <span className="text-xs font-bold uppercase tracking-widest text-saffron-600 block mb-2">
+            Route Not Found
+          </span>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-navy-950">
+            You&apos;ve taken an unmapped turn
           </h1>
-          <h2 className="font-display text-2xl lg:text-4xl font-bold text-navy-900">
-            Page Not Found
-          </h2>
-        </motion.div>
+        </div>
 
         {/* Description */}
-        <motion.p
-          variants={itemVariants}
-          className="text-navy-600 text-lg mb-8 max-w-md mx-auto"
-        >
-          Looks like you took a wrong turn on your route. The page you're
-          looking for doesn't exist.
-        </motion.p>
-
-        {/* Decorative Elements */}
-        <motion.div
-          variants={itemVariants}
-          className="flex justify-center gap-4 mb-10"
-        >
-          <div className="w-3 h-3 rounded-full bg-saffron-400" />
-          <div className="w-3 h-3 rounded-full bg-cream-300" />
-          <div className="w-3 h-3 rounded-full bg-navy-200" />
-        </motion.div>
+        <p className="text-navy-600 text-sm sm:text-base mb-8 max-w-md mx-auto leading-relaxed">
+          The destination page or transport record you requested doesn&apos;t exist or may have been moved.
+        </p>
 
         {/* Action Buttons */}
-        <motion.div
-          variants={itemVariants}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
-        >
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/"
-            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-linear-to-r from-saffron-500 to-saffron-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-saffron-500/30 transition-all duration-300 hover:scale-105"
+            href="/dashboard"
+            className="btn-primary text-sm py-2.5 px-6 shadow-sm"
           >
-            <Home className="w-5 h-5" />
-            Back to Dashboard
+            <Home className="w-4 h-4" />
+            <span>Back to Dashboard</span>
           </Link>
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-cream-100 text-navy-700 font-semibold rounded-xl hover:bg-cream-200 transition-all duration-300"
+            className="btn-secondary text-sm py-2.5 px-6"
           >
-            <ArrowLeft className="w-5 h-5" />
-            Go Back
+            <ArrowLeft className="w-4 h-4" />
+            <span>Go Back</span>
           </button>
-        </motion.div>
+        </div>
 
-        {/* Additional Info */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-12 p-6 bg-white/50 backdrop-blur-sm rounded-2xl border border-cream-200"
-        >
-          <p className="text-sm text-navy-600">
-            Need help? Check the navigation menu or start by{" "}
-            <Link
-              href="/entries"
-              className="font-semibold text-saffron-600 hover:text-saffron-700 underline"
-            >
-              viewing your entries
-            </Link>
-          </p>
-        </motion.div>
+        {/* Helpful Hint Card */}
+        <div className="mt-10 p-4 bg-white rounded-xl border border-cream-200/90 shadow-subtle text-xs text-navy-500">
+          Looking for duty entries? Head over to{" "}
+          <Link
+            href="/entries"
+            className="font-semibold text-saffron-600 hover:text-saffron-700 underline"
+          >
+            Duty Entries
+          </Link>{" "}
+          or manage your{" "}
+          <Link
+            href="/invoice"
+            className="font-semibold text-saffron-600 hover:text-saffron-700 underline"
+          >
+            Tax Invoices
+          </Link>
+          .
+        </div>
       </motion.div>
-
-      {/* Background Gradient Elements */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-saffron-200/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-navy-100/20 rounded-full blur-3xl" />
-      </div>
     </div>
   );
 }

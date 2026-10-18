@@ -15,6 +15,8 @@ import {
   Building2,
   IndianRupee,
   MessageSquare,
+  ArrowRight,
+  ShieldAlert,
 } from "lucide-react";
 import {
   formatDate,
@@ -28,21 +30,15 @@ import type { DutyEntry } from "@/lib/types";
 interface DutyEntryCardProps {
   entry: DutyEntry;
   clientName: string;
-  // Display options
   showClient?: boolean;
   showActions?: boolean;
   showCheckbox?: boolean;
-  // Checkbox state
   isSelected?: boolean;
   onToggleSelect?: () => void;
-  // Action handlers
   onEdit?: () => void;
   onDelete?: () => void;
-  // Animation
   animationDelay?: number;
-  // Variant for different contexts
   variant?: "default" | "compact";
-  // Time format preference
   timeFormat?: "12hr" | "24hr";
 }
 
@@ -64,7 +60,6 @@ export default function DutyEntryCard({
   const isMultiDay = entryDays > 1;
   const isCancelled = entry.cancelled === true;
 
-  // Calculate total charges
   const additionalChargesTotal =
     entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) || 0;
   const totalCharges = entry.tollParking + additionalChargesTotal;
@@ -74,7 +69,6 @@ export default function DutyEntryCard({
     if (isCancelled) return null;
 
     if (isMultiDay) {
-      // Check what mode was used for multi-day entry
       if (entry.multiTimeMode === "totalHours") {
         return {
           type: "totalHours" as const,
@@ -94,7 +88,6 @@ export default function DutyEntryCard({
           })),
         };
       } else {
-        // sameDaily mode - same time for all days
         return {
           type: "sameDaily" as const,
           timeIn: decimalToTime(entry.timeIn, timeFormat),
@@ -102,7 +95,6 @@ export default function DutyEntryCard({
         };
       }
     } else {
-      // Single day
       return {
         type: "single" as const,
         timeIn: decimalToTime(entry.timeIn, timeFormat),
@@ -123,66 +115,63 @@ export default function DutyEntryCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: animationDelay }}
+      transition={{ delay: animationDelay, duration: 0.3, ease: "easeOut" }}
       onClick={handleCardClick}
-      className={`rounded-xl border-2 transition-all ${
+      className={`rounded-2xl border transition-all ${
         showCheckbox ? "cursor-pointer" : ""
       } ${
         isSelected
-          ? "border-saffron-400 bg-saffron-50 shadow-md"
-          : "border-cream-200 bg-white hover:border-cream-300"
-      } ${variant === "compact" ? "p-3" : "p-4"}`}
+          ? "border-saffron-500 bg-saffron-50/70 shadow-soft"
+          : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
+      } ${variant === "compact" ? "p-3.5" : "p-5"}`}
     >
       {/* Header Section */}
-      <div className="flex items-start gap-3 mb-3">
+      <div className="flex items-start gap-3 mb-3.5">
         {/* Checkbox */}
         {showCheckbox && (
           <div className="mt-0.5 shrink-0">
             {isSelected ? (
-              <CheckSquare className="w-5 h-5 text-saffron-500" />
+              <CheckSquare className="w-5 h-5 text-saffron-600" />
             ) : (
-              <Square className="w-5 h-5 text-navy-300" />
+              <Square className="w-5 h-5 text-navy-300 hover:text-navy-500 transition-colors" />
             )}
           </div>
         )}
 
         {/* Date and Client Info */}
         <div className="flex-1 min-w-0">
-          {/* Date Row */}
-          <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="flex items-start justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <Calendar className="w-4 h-4 text-saffron-500 shrink-0" />
+              <Calendar className="w-4 h-4 text-saffron-600 shrink-0" />
               {isMultiDay ? (
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-xs bg-saffron-100 text-saffron-700 px-1.5 py-0.5 rounded font-medium">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="badge badge-saffron text-[11px] font-bold">
                     {entryDays} days
                   </span>
-                  <span className="font-semibold text-navy-900 text-sm">
+                  <span className="font-semibold text-navy-950 text-sm">
                     {formatDate(entry.date)}
                   </span>
-                  <span className="text-navy-400">→</span>
-                  <span className="font-semibold text-navy-900 text-sm">
+                  <ArrowRight className="w-3.5 h-3.5 text-navy-400" />
+                  <span className="font-semibold text-navy-950 text-sm">
                     {formatDate(entry.endDate!)}
                   </span>
                 </div>
               ) : (
-                <span className="font-semibold text-navy-900">
+                <span className="font-bold text-navy-950 text-sm">
                   {formatDate(entry.date)}
                 </span>
               )}
             </div>
 
-            {/* Actions and Cancelled Badge - Group them together on the right */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Cancelled Badge */}
+            {/* Actions and Status */}
+            <div className="flex items-center gap-1.5 shrink-0">
               {isCancelled && (
-                <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
+                <span className="badge badge-amber text-xs flex items-center gap-1 font-semibold">
                   <Ban className="w-3 h-3" />
                   Cancelled
                 </span>
               )}
 
-              {/* Actions */}
               {showActions && !showCheckbox && (
                 <div className="flex items-center gap-1">
                   {onEdit && (
@@ -191,9 +180,11 @@ export default function DutyEntryCard({
                         e.stopPropagation();
                         onEdit();
                       }}
-                      className="w-8 h-8 rounded-lg bg-cream-100 hover:bg-cream-200 flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-lg bg-cream-100 hover:bg-cream-200 text-navy-700 flex items-center justify-center transition-colors"
+                      title="Edit duty slip"
+                      aria-label="Edit duty slip"
                     >
-                      <Edit3 className="w-4 h-4 text-navy-600" />
+                      <Edit3 className="w-4 h-4" />
                     </button>
                   )}
                   {onDelete && (
@@ -202,9 +193,11 @@ export default function DutyEntryCard({
                         e.stopPropagation();
                         onDelete();
                       }}
-                      className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors"
+                      title="Delete duty slip"
+                      aria-label="Delete duty slip"
                     >
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -212,47 +205,52 @@ export default function DutyEntryCard({
             </div>
           </div>
 
-          {/* Duty ID Row */}
-          <div className="flex items-center gap-2 text-sm mb-1">
-            <Hash className="w-4 h-4 text-navy-400" />
-            <span className="font-mono text-navy-600">{entry.dutyId}</span>
-          </div>
-
-          {/* Client Row */}
-          {showClient && (
-            <div className="flex items-center gap-2 text-sm">
-              <Building2 className="w-4 h-4 text-navy-400" />
-              <span className="text-navy-600 truncate">{clientName}</span>
+          {/* Meta Row: Duty ID & Client */}
+          <div className="flex items-center gap-3 text-xs text-navy-500 flex-wrap">
+            <div className="flex items-center gap-1 font-mono">
+              <Hash className="w-3.5 h-3.5 text-navy-400" />
+              <span>{entry.dutyId}</span>
             </div>
-          )}
+            {showClient && (
+              <>
+                <span className="text-navy-300">•</span>
+                <div className="flex items-center gap-1 font-medium text-navy-700 truncate max-w-xs">
+                  <Building2 className="w-3.5 h-3.5 text-navy-400" />
+                  <span className="truncate">{clientName}</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Content Section - Only show if not cancelled */}
+      {/* Content Section */}
       {!isCancelled && (
         <>
-          {/* KMs and Time Grid - Always 2 columns, time fields span full width when 3 items */}
+          {/* Meter Readings & Timing Grid */}
           <div
-            className={`grid grid-cols-2 gap-3 mb-3 ${showCheckbox ? "ml-8" : ""}`}
+            className={`grid grid-cols-2 gap-2.5 mb-3 ${
+              showCheckbox ? "ml-8" : ""
+            }`}
           >
-            {/* Starting KM */}
-            <div className="bg-cream-50 rounded-lg p-2.5">
-              <div className="flex items-center gap-1 text-xs text-navy-500 mb-0.5">
-                <MapPin className="w-3 h-3" />
+            {/* Start KM */}
+            <div className="bg-cream-50/80 rounded-xl p-2.5 border border-cream-200/70">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-0.5">
+                <MapPin className="w-3 h-3 text-saffron-600" />
                 Start KM
               </div>
-              <div className="font-mono font-semibold text-navy-900 text-sm">
+              <div className="font-mono font-bold text-navy-900 text-sm">
                 {entry.startingKms.toLocaleString()}
               </div>
             </div>
 
             {/* Closing KM */}
-            <div className="bg-cream-50 rounded-lg p-2.5">
-              <div className="flex items-center gap-1 text-xs text-navy-500 mb-0.5">
-                <MapPin className="w-3 h-3" />
+            <div className="bg-cream-50/80 rounded-xl p-2.5 border border-cream-200/70">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-0.5">
+                <MapPin className="w-3 h-3 text-navy-600" />
                 Close KM
               </div>
-              <div className="font-mono font-semibold text-navy-900 text-sm">
+              <div className="font-mono font-bold text-navy-900 text-sm">
                 {entry.closingKms.toLocaleString()}
               </div>
             </div>
@@ -261,50 +259,50 @@ export default function DutyEntryCard({
             {timeDisplay && (
               <>
                 {timeDisplay.type === "totalHours" ? (
-                  <div className="bg-cream-50 rounded-lg p-2.5 col-span-2">
-                    <div className="flex items-center gap-1 text-xs text-navy-500 mb-0.5">
-                      <Clock className="w-3 h-3" />
-                      Total Hours
+                  <div className="bg-cream-50/80 rounded-xl p-2.5 col-span-2 border border-cream-200/70">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-0.5">
+                      <Clock className="w-3 h-3 text-saffron-600" />
+                      Total Hours Logged
                     </div>
-                    <div className="font-mono font-semibold text-navy-900 text-sm">
+                    <div className="font-mono font-bold text-navy-900 text-sm">
                       {timeDisplay.totalHours}
                     </div>
                   </div>
                 ) : timeDisplay.type === "perDay" ? (
-                  <div className="bg-cream-50 rounded-lg p-2.5 col-span-2">
-                    <div className="flex items-center gap-1 text-xs text-navy-500 mb-1">
-                      <Clock className="w-3 h-3" />
-                      Time Per Day
+                  <div className="bg-cream-50/80 rounded-xl p-2.5 col-span-2 border border-cream-200/70">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-1">
+                      <Clock className="w-3 h-3 text-saffron-600" />
+                      Daily Timings
                     </div>
-                    <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                    <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
                       {timeDisplay.days.map((day) => (
                         <div
                           key={day.day}
-                          className="text-xs font-mono text-navy-800"
+                          className="text-xs font-mono text-navy-800 flex justify-between"
                         >
-                          <span className="text-navy-500">Day {day.day}:</span>{" "}
-                          {day.timeIn} - {day.timeOut}
+                          <span className="text-navy-500 font-medium">Day {day.day}:</span>
+                          <span>{day.timeIn} → {day.timeOut}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="bg-cream-50 rounded-lg p-2.5">
-                      <div className="flex items-center gap-1 text-xs text-navy-500 mb-0.5">
-                        <Clock className="w-3 h-3" />
+                    <div className="bg-cream-50/80 rounded-xl p-2.5 border border-cream-200/70">
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-0.5">
+                        <Clock className="w-3 h-3 text-saffron-600" />
                         Time In
                       </div>
-                      <div className="font-mono font-semibold text-navy-900 text-sm">
+                      <div className="font-mono font-bold text-navy-900 text-sm">
                         {timeDisplay.timeIn}
                       </div>
                     </div>
-                    <div className="bg-cream-50 rounded-lg p-2.5">
-                      <div className="flex items-center gap-1 text-xs text-navy-500 mb-0.5">
-                        <Clock className="w-3 h-3" />
+                    <div className="bg-cream-50/80 rounded-xl p-2.5 border border-cream-200/70">
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-navy-500 uppercase tracking-wider mb-0.5">
+                        <Clock className="w-3 h-3 text-navy-600" />
                         Time Out
                       </div>
-                      <div className="font-mono font-semibold text-navy-900 text-sm">
+                      <div className="font-mono font-bold text-navy-900 text-sm">
                         {timeDisplay.timeOut}
                       </div>
                     </div>
@@ -314,51 +312,49 @@ export default function DutyEntryCard({
             )}
           </div>
 
-          {/* Totals Row */}
+          {/* Totals Summary */}
           <div
-            className={`flex items-center gap-2 text-sm mb-2 ${showCheckbox ? "ml-8" : ""}`}
+            className={`flex items-center gap-3 text-xs mb-2.5 ${
+              showCheckbox ? "ml-8" : ""
+            }`}
           >
-            <span className="text-navy-500">Total:</span>
-            <span className="font-mono font-bold text-navy-900">
+            <span className="text-navy-400 font-medium">Running Total:</span>
+            <span className="font-mono font-bold text-navy-950">
               {entry.totalKms} km
             </span>
-            <span className="font-mono font-bold text-navy-900">
+            <span className="text-navy-300">•</span>
+            <span className="font-mono font-bold text-navy-950">
               {formatDuration(entry.totalTime)}
             </span>
           </div>
 
-          {/* Badges Row - Extra KMs, Extra Hours, Toll, Additional Charges */}
+          {/* Badges Row */}
           {(entry.extraKms > 0 ||
             entry.extraTime > 0 ||
             entry.tollParking > 0 ||
             additionalChargesTotal > 0) && (
             <div
-              className={`flex items-center gap-2 flex-wrap ${showCheckbox ? "ml-8" : ""}`}
+              className={`flex items-center gap-1.5 flex-wrap ${
+                showCheckbox ? "ml-8" : ""
+              }`}
             >
-              {/* Extra KMs Badge */}
               {entry.extraKms > 0 && (
-                <span className="badge badge-saffron text-xs">
-                  +{entry.extraKms} km
+                <span className="badge badge-saffron text-[11px]">
+                  +{entry.extraKms} extra km
                 </span>
               )}
-
-              {/* Extra Hours Badge */}
               {entry.extraTime > 0 && (
-                <span className="badge badge-saffron text-xs">
-                  +{formatDuration(entry.extraTime)}
+                <span className="badge badge-saffron text-[11px]">
+                  +{formatDuration(entry.extraTime)} extra
                 </span>
               )}
-
-              {/* Toll/Parking Badge */}
               {entry.tollParking > 0 && (
-                <span className="badge badge-navy text-xs">
+                <span className="badge badge-navy text-[11px]">
                   Toll: {formatCurrency(entry.tollParking)}
                 </span>
               )}
-
-              {/* Additional Charges Badges */}
               {entry.additionalCharges?.map((charge, idx) => (
-                <span key={idx} className="badge badge-navy text-xs">
+                <span key={idx} className="badge badge-cream text-[11px]">
                   {charge.label}: {formatCurrency(charge.amount)}
                 </span>
               ))}
@@ -370,19 +366,19 @@ export default function DutyEntryCard({
       {/* Remark Section */}
       {entry.remark && (
         <div
-          className={`mt-3 pt-3 border-t border-cream-200 ${showCheckbox ? "ml-8" : ""}`}
+          className={`mt-3 pt-2.5 border-t border-cream-200/70 text-xs text-navy-600 flex items-start gap-1.5 italic ${
+            showCheckbox ? "ml-8" : ""
+          }`}
         >
-          <div className="flex items-start gap-2">
-            <MessageSquare className="w-4 h-4 text-navy-400 shrink-0 mt-0.5" />
-            <p className="text-sm text-navy-600 italic">{entry.remark}</p>
-          </div>
+          <MessageSquare className="w-3.5 h-3.5 text-navy-400 shrink-0 mt-0.5" />
+          <span>{entry.remark}</span>
         </div>
       )}
     </motion.div>
   );
 }
 
-// Compact list item variant for dashboard and smaller spaces
+// Compact list item variant for dashboard and dense tables
 export function DutyEntryListItem({
   entry,
   clientName,
@@ -400,9 +396,7 @@ export function DutyEntryListItem({
 
   const additionalChargesTotal =
     entry.additionalCharges?.reduce((s, c) => s + c.amount, 0) || 0;
-  const totalCharges = entry.tollParking + additionalChargesTotal;
 
-  // Get time display for the item
   const getTimeLabel = () => {
     if (isCancelled) return null;
 
@@ -414,7 +408,6 @@ export function DutyEntryListItem({
         entry.perDayTimes &&
         entry.perDayTimes.length > 0
       ) {
-        // Show abbreviated per-day times
         return entry.perDayTimes
           .map(
             (day, idx) =>
@@ -433,90 +426,90 @@ export function DutyEntryListItem({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: animationDelay }}
-      className="p-3 rounded-xl bg-cream-50 hover:bg-saffron-50 transition-colors group"
+      transition={{ delay: animationDelay, duration: 0.25, ease: "easeOut" }}
+      className="p-3.5 rounded-xl bg-cream-50/70 hover:bg-saffron-50/70 border border-cream-200/80 hover:border-saffron-200/90 transition-all group"
     >
-      {/* Row 1: Date, Duty ID, Client, Cancelled Badge */}
+      {/* Row 1: Date, Duty ID, Client */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow shrink-0">
-            <Calendar className="w-4 h-4 text-saffron-500" />
+          <div className="w-8 h-8 rounded-lg bg-white border border-cream-200 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+            <Calendar className="w-3.5 h-3.5 text-saffron-600" />
           </div>
           <div className="min-w-0 flex-1">
-            {isMultiDay ? (
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-xs text-saffron-600 font-medium">
-                  {entryDays} days
+            <div className="flex items-center gap-2 flex-wrap">
+              {isMultiDay ? (
+                <div className="flex items-center gap-1">
+                  <span className="badge badge-saffron text-[10px]">
+                    {entryDays}d
+                  </span>
+                  <span className="font-semibold text-navy-950 text-sm">
+                    {formatDate(entry.date)} → {formatDate(entry.endDate!)}
+                  </span>
+                </div>
+              ) : (
+                <span className="font-semibold text-navy-950 text-sm">
+                  {formatDate(entry.date)}
                 </span>
-                <span className="font-semibold text-navy-900 text-sm">
-                  {formatDate(entry.date)} → {formatDate(entry.endDate!)}
-                </span>
-              </div>
-            ) : (
-              <p className="font-semibold text-navy-900 text-sm">
-                {formatDate(entry.date)}
-              </p>
-            )}
-            <div className="flex items-center gap-2 text-xs text-navy-500">
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-navy-500 mt-0.5">
               <span className="font-mono">#{entry.dutyId}</span>
-              <span className="text-navy-300">•</span>
-              <span className="truncate">{clientName}</span>
+              <span>•</span>
+              <span className="truncate font-medium text-navy-700">{clientName}</span>
             </div>
           </div>
         </div>
+
         {isCancelled && (
-          <span className="badge bg-amber-100 text-amber-700 text-xs flex items-center gap-1 shrink-0 ml-2">
+          <span className="badge badge-amber text-[10px] shrink-0">
             <Ban className="w-3 h-3" />
             Cancelled
           </span>
         )}
       </div>
 
-      {/* Row 2: Stats - Only show if not cancelled */}
+      {/* Row 2: Metrics */}
       {!isCancelled && (
-        <div className="flex items-center gap-3 ml-12 flex-wrap text-xs">
-          {/* KMs */}
+        <div className="flex items-center gap-3 ml-11 flex-wrap text-xs text-navy-700">
           <div className="flex items-center gap-1">
             <MapPin className="w-3 h-3 text-navy-400" />
-            <span className="font-mono font-semibold text-navy-800">
-              {entry.startingKms.toLocaleString()} →{" "}
-              {entry.closingKms.toLocaleString()}
+            <span className="font-mono font-bold text-navy-900">
+              {entry.startingKms.toLocaleString()} → {entry.closingKms.toLocaleString()}
             </span>
-            <span className="text-navy-500">({entry.totalKms} km)</span>
+            <span className="text-navy-500 font-mono font-medium">({entry.totalKms} km)</span>
           </div>
 
-          {/* Time */}
           {timeLabel && (
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3 text-navy-400" />
-              <span className="font-mono text-navy-700">{timeLabel}</span>
+              <span className="font-mono text-navy-600">{timeLabel}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Row 3: Extras and Charges as badges */}
+      {/* Row 3: Badges */}
       {!isCancelled && (
-        <div className="flex items-center gap-2 ml-12 mt-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 ml-11 mt-2 flex-wrap">
           {entry.extraKms > 0 && (
-            <span className="badge badge-saffron text-xs">
+            <span className="badge badge-saffron text-[10px]">
               +{entry.extraKms} km
             </span>
           )}
           {entry.extraTime > 0 && (
-            <span className="badge badge-saffron text-xs">
+            <span className="badge badge-saffron text-[10px]">
               +{formatDuration(entry.extraTime)}
             </span>
           )}
           {entry.tollParking > 0 && (
-            <span className="badge badge-navy text-xs">
+            <span className="badge badge-navy text-[10px]">
               Toll: {formatCurrency(entry.tollParking)}
             </span>
           )}
           {entry.additionalCharges?.map((charge, idx) => (
-            <span key={idx} className="badge badge-navy text-xs">
+            <span key={idx} className="badge badge-cream text-[10px]">
               {charge.label}: {formatCurrency(charge.amount)}
             </span>
           ))}
@@ -525,7 +518,7 @@ export function DutyEntryListItem({
 
       {/* Remark */}
       {entry.remark && (
-        <div className="ml-12 mt-1.5 text-xs text-navy-500 italic truncate">
+        <div className="ml-11 mt-1.5 text-[11px] text-navy-400 italic truncate">
           {entry.remark}
         </div>
       )}

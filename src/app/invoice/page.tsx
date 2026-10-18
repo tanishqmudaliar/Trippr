@@ -48,55 +48,41 @@ export default function InvoicePage() {
       className="space-y-6 lg:space-y-8 pb-8 overflow-x-hidden"
     >
       {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl lg:text-4xl font-bold text-navy-900 mb-2">
-          Invoice
-        </h1>
-        <p className="text-navy-500 text-sm lg:text-lg">
-          Create and manage professional invoices
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-cream-200/80">
+        <div>
+          <h1 className="font-display text-2xl lg:text-3xl font-bold text-navy-950 tracking-tight">
+            Tax Invoices & Billing
+          </h1>
+          <p className="text-xs sm:text-sm text-navy-500 font-medium">
+            Generate GST-ready PDF invoices, track settlements, and manage billing archives
+          </p>
+        </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-cream-200">
-        <button
-          onClick={() => setActiveTab("create")}
-          className={`px-6 py-3 font-medium text-sm transition-all relative ${
-            activeTab === "create"
-              ? "text-saffron-600"
-              : "text-navy-500 hover:text-navy-700"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Create Invoice
-          </div>
-          {activeTab === "create" && (
-            <motion.div
-              layoutId="invoiceActiveTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-saffron-500"
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("edit")}
-          className={`px-6 py-3 font-medium text-sm transition-all relative ${
-            activeTab === "edit"
-              ? "text-saffron-600"
-              : "text-navy-500 hover:text-navy-700"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Manage Invoices
-          </div>
-          {activeTab === "edit" && (
-            <motion.div
-              layoutId="invoiceActiveTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-saffron-500"
-            />
-          )}
-        </button>
+        {/* Tab Buttons */}
+        <div className="inline-flex p-1 rounded-xl bg-white border border-cream-200/90 shadow-subtle">
+          <button
+            onClick={() => setActiveTab("create")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === "create"
+                ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
+                : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create Invoice</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("edit")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === "edit"
+                ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
+                : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Manage Invoices</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -737,10 +723,10 @@ function EditInvoiceTab() {
                   key={invoice.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 rounded-xl border-2 transition-all ${
+                  className={`p-4.5 rounded-2xl border transition-all ${
                     isSelected
-                      ? "border-saffron-400 bg-saffron-50 shadow-md"
-                      : "border-cream-200 bg-white"
+                      ? "border-saffron-500 bg-saffron-50/80 shadow-soft"
+                      : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -1407,18 +1393,25 @@ function InvoiceSummaryCard({
             </span>
           </div>
         )}
-        <div className="h-px bg-cream-300 mt-2 mb-3" />
-        <div className="flex justify-between py-3 bg-saffron-50 px-4 lg:px-6 rounded-xl">
-          <span className="font-display text-lg font-bold text-navy-900">
-            Net Total
-          </span>
-          <span className="font-display text-xl font-bold text-saffron-600">
+        <div className="h-px bg-cream-200 mt-2 mb-3" />
+        <div className="flex items-center justify-between py-3.5 bg-linear-to-r from-saffron-50/90 to-cream-50 px-4 lg:px-6 rounded-xl border border-saffron-200/80">
+          <div>
+            <span className="font-display text-base font-bold text-navy-950 block">
+              Net Total
+            </span>
+            <span className="text-[10px] text-navy-400 font-medium">
+              Rounded total amount in INR
+            </span>
+          </div>
+          <span className="font-mono text-2xl font-bold text-saffron-700">
             {formatCurrency(totals.roundedTotal)}
           </span>
         </div>
-        <p className="text-sm text-navy-500 italic mt-2">
-          {numberToWords(totals.roundedTotal)}
-        </p>
+        <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-cream-100/60 border border-cream-200/60">
+          <p className="text-xs text-navy-600 font-mono font-medium">
+            {numberToWords(totals.roundedTotal)}
+          </p>
+        </div>
       </div>
     </motion.div>
   );
