@@ -14,20 +14,20 @@ import {
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-linear-to-br from-cream-50 via-white to-saffron-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+    <div className="min-h-screen bg-cream-50 py-8 sm:py-12 lg:py-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-navy-600 hover:text-saffron-600 mb-8 lg:mb-12 transition-colors font-medium group"
+          className="inline-flex items-center gap-2 text-navy-600 hover:text-saffron-600 mb-8 transition-colors font-medium group text-sm"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Home
         </Link>
 
         {/* Header Card */}
-        <div className="bg-white rounded-2xl shadow-lg border-2 border-cream-200 p-6 sm:p-8 lg:p-10 mb-6">
+        <div className="card p-6 sm:p-8 lg:p-10 mb-6 border border-cream-200/90 shadow-soft">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 mb-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-linear-to-br from-saffron-500 to-saffron-600 flex items-center justify-center shadow-lg shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-linear-to-br from-saffron-500 to-saffron-600 flex items-center justify-center shadow-soft shrink-0">
               <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
             <div className="flex-1">
@@ -39,7 +39,7 @@ export default function TermsOfServicePage() {
               </p>
             </div>
           </div>
-          <p className="text-navy-600 text-base sm:text-lg leading-relaxed border-t-2 border-cream-100 pt-6 mt-6">
+          <p className="text-navy-600 text-base sm:text-lg leading-relaxed border-t border-cream-100 pt-6 mt-6">
             Please read these terms carefully before using Trippr. By accessing
             and using our app, you agree to be bound by these terms and
             conditions.
@@ -47,7 +47,7 @@ export default function TermsOfServicePage() {
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-2xl shadow-lg border-2 border-cream-200 divide-y-2 divide-cream-100">
+        <div className="card border border-cream-200/90 divide-y divide-cream-100 shadow-soft">
           {/* Section 1 */}
           <section className="p-6 sm:p-8 lg:p-10">
             <div className="flex items-start gap-4 mb-5">
@@ -121,7 +121,7 @@ export default function TermsOfServicePage() {
                   You are responsible for:
                 </p>
                 <div className="space-y-3">
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-saffron-500 shrink-0 mt-2" />
                       <p className="text-navy-700 text-sm sm:text-base">
@@ -129,7 +129,7 @@ export default function TermsOfServicePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-saffron-500 shrink-0 mt-2" />
                       <p className="text-navy-700 text-sm sm:text-base">
@@ -138,7 +138,7 @@ export default function TermsOfServicePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-saffron-500 shrink-0 mt-2" />
                       <p className="text-navy-700 text-sm sm:text-base">
@@ -146,7 +146,7 @@ export default function TermsOfServicePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                  <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-saffron-500 shrink-0 mt-2" />
                       <p className="text-navy-700 text-sm sm:text-base">
@@ -324,7 +324,7 @@ export default function TermsOfServicePage() {
                 <h2 className="font-display text-xl sm:text-2xl font-bold text-navy-900 mb-5">
                   Governing Law
                 </h2>
-                <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border-2 border-cream-200">
+                <div className="p-4 sm:p-5 bg-cream-50 rounded-xl border border-cream-200/80 shadow-xs">
                   <div className="flex items-start gap-3">
                     <Globe className="w-5 h-5 text-saffron-600 shrink-0 mt-0.5" />
                     <p className="text-navy-700 leading-relaxed text-sm sm:text-base">
