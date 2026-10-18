@@ -50,6 +50,7 @@ import {
   isTokenValid,
   isTokenExpiringSoon,
   silentRefreshToken,
+  getValidAuth,
   formatSyncTime,
   GoogleDriveAuthError,
   type GoogleAuthState,
@@ -153,16 +154,19 @@ export default function SettingsPage() {
         setGoogleAuth(auth);
 
         if (!isTokenValid(auth)) {
-          silentRefreshToken(auth).then((newAuth) => {
-            if (newAuth) {
-              setGoogleAuth(newAuth);
-              localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(newAuth));
-            } else {
-              setGoogleAuth(null);
-              setSyncStatus(null);
-              localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
-            }
-          });
+          if (auth.refreshToken) {
+            silentRefreshToken(auth).then((newAuth) => {
+              if (newAuth) {
+                setGoogleAuth(newAuth);
+                localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(newAuth));
+              }
+            });
+          } else {
+            // Legacy session without refresh token
+            setGoogleAuth(null);
+            setSyncStatus(null);
+            localStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
+          }
         }
       } catch {
         // Leave storage untouched
@@ -474,16 +478,35 @@ export default function SettingsPage() {
 
   // Check sync status when connected
   const checkSyncStatus = useCallback(async () => {
-    if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
+    if (!googleAuth?.accessToken) return;
     setIsCheckingSync(true);
     setSyncCheckError(null);
     try {
+      const activeAuth = await getValidAuth(googleAuth);
+      setGoogleAuth(activeAuth);
+      if (!activeAuth.accessToken) return;
+
       const localData = getSyncData();
-      const status = await getSyncStatus(googleAuth.accessToken, localData);
+      const status = await getSyncStatus(activeAuth.accessToken, localData);
       setSyncStatus(status);
     } catch (error) {
       console.error("Failed to check sync status:", error);
       if (error instanceof GoogleDriveAuthError) {
+        if (googleAuth.refreshToken) {
+          const refreshed = await silentRefreshToken(googleAuth);
+          if (refreshed) {
+            setGoogleAuth(refreshed);
+            localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(refreshed));
+            try {
+              const localData = getSyncData();
+              const status = await getSyncStatus(refreshed.accessToken, localData);
+              setSyncStatus(status);
+              return;
+            } catch {
+              // fall through
+            }
+          }
+        }
         disconnectDueToAuthError();
       } else {
         setSyncCheckError(
@@ -530,17 +553,21 @@ export default function SettingsPage() {
 
   // Sync Now - handles the main sync logic
   const handleSyncNow = async () => {
-    if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
+    if (!googleAuth?.accessToken) return;
 
     setIsCheckingSync(true);
     setSyncCheckError(null);
     try {
+      const activeAuth = await getValidAuth(googleAuth);
+      setGoogleAuth(activeAuth);
+      if (!activeAuth.accessToken) return;
+
       const localData = getSyncData();
-      const status = await getSyncStatus(googleAuth.accessToken, localData);
+      const status = await getSyncStatus(activeAuth.accessToken, localData);
       setSyncStatus(status);
 
       if (!status.hasCloudData) {
-        await uploadLocalToCloud();
+        await uploadLocalToCloud(activeAuth);
       } else if (status.needsSync) {
         setShowSyncConflictModal(true);
       } else {
@@ -548,6 +575,15 @@ export default function SettingsPage() {
       }
     } catch (error) {
       if (error instanceof GoogleDriveAuthError) {
+        if (googleAuth.refreshToken) {
+          const refreshed = await silentRefreshToken(googleAuth);
+          if (refreshed) {
+            setGoogleAuth(refreshed);
+            localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(refreshed));
+            await uploadLocalToCloud(refreshed);
+            return;
+          }
+        }
         disconnectDueToAuthError();
       } else {
         showNotification(
@@ -562,7 +598,7 @@ export default function SettingsPage() {
 
   // Download cloud data as JSON file
   const handleDownloadCloudData = async () => {
-    if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
+    if (!googleAuth?.accessToken) return;
 
     if (!syncStatus?.hasCloudData) {
       showNotification(
@@ -574,7 +610,11 @@ export default function SettingsPage() {
 
     setIsDownloadingCloud(true);
     try {
-      const cloudData = await downloadSyncData(googleAuth.accessToken);
+      const activeAuth = await getValidAuth(googleAuth);
+      setGoogleAuth(activeAuth);
+      if (!activeAuth.accessToken) return;
+
+      const cloudData = await downloadSyncData(activeAuth.accessToken);
       if (!cloudData) {
         showNotification("No cloud data found", "error");
         return;
@@ -593,6 +633,28 @@ export default function SettingsPage() {
       showNotification("Cloud backup snapshot downloaded", "success");
     } catch (error) {
       if (error instanceof GoogleDriveAuthError) {
+        if (googleAuth.refreshToken) {
+          const refreshed = await silentRefreshToken(googleAuth);
+          if (refreshed) {
+            setGoogleAuth(refreshed);
+            localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(refreshed));
+            const cloudData = await downloadSyncData(refreshed.accessToken);
+            if (cloudData) {
+              const jsonString = JSON.stringify(cloudData, null, 2);
+              const blob = new Blob([jsonString], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `trippr-cloud-backup-${new Date().toISOString().split("T")[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              showNotification("Cloud backup snapshot downloaded", "success");
+              return;
+            }
+          }
+        }
         disconnectDueToAuthError();
       } else {
         showNotification(
@@ -607,7 +669,7 @@ export default function SettingsPage() {
 
   // Clear all cloud data
   const handleClearCloudData = async () => {
-    if (!googleAuth?.accessToken || !isTokenValid(googleAuth)) return;
+    if (!googleAuth?.accessToken) return;
 
     if (!syncStatus?.hasCloudData) {
       showNotification("No cloud data to clear.", "error");
@@ -616,7 +678,11 @@ export default function SettingsPage() {
 
     setIsClearingCloud(true);
     try {
-      await deleteSyncData(googleAuth.accessToken);
+      const activeAuth = await getValidAuth(googleAuth);
+      setGoogleAuth(activeAuth);
+      if (!activeAuth.accessToken) return;
+
+      await deleteSyncData(activeAuth.accessToken);
       setSyncStatus({
         hasCloudData: false,
         cloudTimestamp: null,
@@ -628,6 +694,24 @@ export default function SettingsPage() {
       showNotification("Cloud storage backup erased", "info");
     } catch (error) {
       if (error instanceof GoogleDriveAuthError) {
+        if (googleAuth.refreshToken) {
+          const refreshed = await silentRefreshToken(googleAuth);
+          if (refreshed) {
+            setGoogleAuth(refreshed);
+            localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(refreshed));
+            await deleteSyncData(refreshed.accessToken);
+            setSyncStatus({
+              hasCloudData: false,
+              cloudTimestamp: null,
+              localTimestamp: null,
+              needsSync: true,
+              cloudData: null,
+            });
+            updateLastSyncTime("");
+            showNotification("Cloud storage backup erased", "info");
+            return;
+          }
+        }
         disconnectDueToAuthError();
       } else {
         showNotification(
@@ -641,8 +725,9 @@ export default function SettingsPage() {
   };
 
   // Upload local data to cloud
-  const uploadLocalToCloud = async () => {
-    if (!googleAuth?.accessToken) return;
+  const uploadLocalToCloud = async (authOverride?: GoogleAuthState) => {
+    const current = authOverride || (googleAuth ? await getValidAuth(googleAuth) : null);
+    if (!current?.accessToken) return;
 
     setIsSyncing(true);
     try {
@@ -660,7 +745,7 @@ export default function SettingsPage() {
         syncedAt: timestamp,
       };
 
-      await uploadSyncData(googleAuth.accessToken, dataToUpload);
+      await uploadSyncData(current.accessToken, dataToUpload);
       updateLastSyncTime(timestamp);
       setSyncStatus({
         hasCloudData: true,
@@ -672,6 +757,15 @@ export default function SettingsPage() {
       showNotification("Data pushed to Google Drive successfully", "success");
     } catch (error) {
       if (error instanceof GoogleDriveAuthError) {
+        if (current.refreshToken) {
+          const refreshed = await silentRefreshToken(current);
+          if (refreshed) {
+            setGoogleAuth(refreshed);
+            localStorage.setItem(GOOGLE_AUTH_STORAGE_KEY, JSON.stringify(refreshed));
+            await uploadLocalToCloud(refreshed);
+            return;
+          }
+        }
         disconnectDueToAuthError();
       } else {
         showNotification(

@@ -3,7 +3,7 @@
  *
  * Uses Google Drive API v3 with appDataFolder for hidden, app-isolated storage.
  * Data stored in appDataFolder is only accessible by this app - not visible to user in their Drive.
- * Requires OAuth 2.0 authentication with drive.appdata scope.
+ * Uses OAuth 2.0 Authorization Code Flow with offline access for permanent refresh tokens.
  */
 
 // File naming - timestamp-based for versioning
@@ -22,6 +22,7 @@ export interface SyncFile {
 
 export interface GoogleAuthState {
   accessToken: string;
+  refreshToken?: string | null;
   email: string | null;
   name: string | null;
   expiresAt: number;
@@ -53,8 +54,7 @@ export interface SyncStatus {
  * Thrown when a Google Drive API call fails because the access token is
  * invalid or expired (HTTP 401). Callers can check `instanceof
  * GoogleDriveAuthError` to distinguish "this session needs reconnecting"
- * from a transient/network failure - the two should never be treated the
- * same as "the cloud has no data".
+ * from a transient/network failure.
  */
 export class GoogleDriveAuthError extends Error {
   constructor(message = "Google Drive session expired or invalid") {
@@ -65,8 +65,7 @@ export class GoogleDriveAuthError extends Error {
 
 /**
  * Throw a typed error for a failed Drive API response. 401s become
- * GoogleDriveAuthError so callers can react differently (e.g. prompt a
- * reconnect) instead of silently treating the failure as "no data".
+ * GoogleDriveAuthError so callers can react cleanly.
  */
 async function throwDriveError(
   response: Response,
@@ -77,7 +76,7 @@ async function throwDriveError(
     const error = await response.json();
     message = error.error?.message || fallback;
   } catch {
-    // Response body wasn't JSON - stick with the fallback message
+    // Response body wasn't JSON - stick with fallback
   }
 
   if (response.status === 401) {
@@ -103,78 +102,67 @@ export function isTokenExpiringSoon(auth: GoogleAuthState): boolean {
 }
 
 /**
- * Silently refresh the access token using hidden iframe
- * Uses prompt=none to skip user interaction if the user is still logged in to Google
+ * Silently refresh the access token using server-side endpoint and permanent refresh token.
+ * This runs in background without popups or third-party cookie restrictions.
  */
 export async function silentRefreshToken(
   currentAuth: GoogleAuthState,
 ): Promise<GoogleAuthState | null> {
-  return new Promise((resolve) => {
-    if (!GOOGLE_CLIENT_ID) {
-      resolve(null);
-      return;
+  if (!currentAuth.refreshToken) {
+    return null;
+  }
+
+  try {
+    const res = await fetch("/api/auth/google/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: currentAuth.refreshToken }),
+    });
+
+    if (!res.ok) {
+      console.warn("Failed to refresh token via API:", await res.text());
+      return null;
     }
 
-    // Build OAuth URL with prompt=none for silent refresh
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-    authUrl.searchParams.set(
-      "redirect_uri",
-      `${window.location.origin}/oauth-callback`,
-    );
-    authUrl.searchParams.set("response_type", "token");
-    authUrl.searchParams.set("scope", SCOPES);
-    authUrl.searchParams.set("prompt", "none"); // Silent - no user interaction
-    if (currentAuth.email) {
-      authUrl.searchParams.set("login_hint", currentAuth.email); // Hint which account
-    }
-
-    // Create hidden iframe
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-
-    // Timeout after 10 seconds
-    const timeout = setTimeout(() => {
-      cleanup();
-      resolve(null);
-    }, 10000);
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      window.removeEventListener("message", handleMessage);
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
+    const data = await res.json();
+    return {
+      ...currentAuth,
+      accessToken: data.accessToken,
+      expiresAt: Date.now() + (data.expiresIn || 3600) * 1000,
     };
-
-    // Listen for callback message
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-
-      if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
-        cleanup();
-        const { accessToken, expiresIn, email, name } = event.data;
-        resolve({
-          accessToken,
-          email: email || currentAuth.email,
-          name: name || currentAuth.name,
-          expiresAt: Date.now() + expiresIn * 1000,
-        });
-      } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
-        cleanup();
-        resolve(null); // Silent refresh failed, but don't throw
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    iframe.src = authUrl.toString();
-  });
+  } catch (err) {
+    console.error("Token refresh network error:", err);
+    return null;
+  }
 }
 
 /**
- * Initialize Google API and prompt for authentication
- * Uses OAuth 2.0 popup flow
+ * Helper to ensure the current auth state has a valid, non-expired access token.
+ * Automatically refreshes the token in the background if expired.
+ */
+export async function getValidAuth(
+  currentAuth: GoogleAuthState,
+): Promise<GoogleAuthState> {
+  if (isTokenValid(currentAuth)) {
+    return currentAuth;
+  }
+
+  if (currentAuth.refreshToken) {
+    const refreshed = await silentRefreshToken(currentAuth);
+    if (refreshed) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trippr-google-auth", JSON.stringify(refreshed));
+      }
+      return refreshed;
+    }
+  }
+
+  return currentAuth;
+}
+
+/**
+ * Initialize Google OAuth popup and exchange authorization code for permanent tokens.
+ * Uses Authorization Code Flow (access_type=offline, prompt=consent) to guarantee a refresh_token.
  */
 export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
   return new Promise((resolve, reject) => {
@@ -187,20 +175,20 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
       return;
     }
 
-    // Build OAuth URL
+    const redirectUri = `${window.location.origin}/oauth-callback`;
+
+    // Build OAuth URL requesting offline access for permanent refresh token
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-    authUrl.searchParams.set(
-      "redirect_uri",
-      `${window.location.origin}/oauth-callback`,
-    );
-    authUrl.searchParams.set("response_type", "token");
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("prompt", "consent");
     authUrl.searchParams.set("scope", SCOPES);
-    authUrl.searchParams.set("prompt", "select_account");
 
-    // Open popup
-    const width = 500;
-    const height = 600;
+    // Open centered popup
+    const width = 520;
+    const height = 640;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
@@ -217,20 +205,54 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
       return;
     }
 
-    // Listen for callback message
-    const handleMessage = (event: MessageEvent) => {
+    let isResolved = false;
+
+    // Listen for callback message from /oauth-callback
+    const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
-      if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+      if (event.data?.type === "GOOGLE_AUTH_CODE") {
+        isResolved = true;
         window.removeEventListener("message", handleMessage);
-        const { accessToken, expiresIn, email, name } = event.data;
+        const code = event.data.code;
+
+        try {
+          // Exchange code for tokens via our server-side API route
+          const res = await fetch("/api/auth/google/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, redirectUri }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to exchange authorization code");
+          }
+
+          const tokenData = await res.json();
+          resolve({
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken || null,
+            email: tokenData.email,
+            name: tokenData.name,
+            expiresAt: Date.now() + (tokenData.expiresIn || 3600) * 1000,
+          });
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error("Authentication failed"));
+        }
+      } else if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+        isResolved = true;
+        window.removeEventListener("message", handleMessage);
+        const { accessToken, expiresIn, email, name, refreshToken } = event.data;
         resolve({
           accessToken,
+          refreshToken: refreshToken || null,
           email,
           name,
           expiresAt: Date.now() + expiresIn * 1000,
         });
       } else if (event.data?.type === "GOOGLE_AUTH_ERROR") {
+        isResolved = true;
         window.removeEventListener("message", handleMessage);
         reject(new Error(event.data.error || "Authentication failed"));
       }
@@ -238,12 +260,16 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthState> {
 
     window.addEventListener("message", handleMessage);
 
-    // Check if popup was closed without completing auth
+    // Watch for manual popup closure
     const checkClosed = setInterval(() => {
       if (popup.closed) {
         clearInterval(checkClosed);
-        window.removeEventListener("message", handleMessage);
-        reject(new Error("Authentication cancelled"));
+        setTimeout(() => {
+          if (!isResolved) {
+            window.removeEventListener("message", handleMessage);
+            reject(new Error("Authentication window was closed before completion."));
+          }
+        }, 1500);
       }
     }, 1000);
   });
@@ -328,7 +354,6 @@ export async function uploadSyncData(
   accessToken: string,
   data: SyncData,
 ): Promise<SyncFile> {
-  // Always create a new file with timestamp
   const timestamp = Date.now();
   const fileName = `${SYNC_FILE_PREFIX}${timestamp}.json`;
 
@@ -388,16 +413,11 @@ function createDataHash(data: Partial<SyncData>): string {
 
 /**
  * Get sync status - checks if cloud has data and if it differs from local
- * Now uses file existence and filename timestamp for status
  */
 export async function getSyncStatus(
   accessToken: string,
   localData: Partial<SyncData> | null,
 ): Promise<SyncStatus> {
-  // Intentionally no try/catch here. A failed check (expired token,
-  // network error, rate limit) is NOT the same thing as "the cloud has
-  // no data" and must not be reported as such - let it throw and have
-  // the caller decide how to handle/display the failure.
   const syncFile = await findSyncFile(accessToken);
 
   if (!syncFile) {
@@ -410,14 +430,10 @@ export async function getSyncStatus(
     };
   }
 
-  // Extract timestamp from filename
   const timestamp = extractTimestamp(syncFile.name);
   const cloudTimestamp = new Date(timestamp).toISOString();
-
-  // Download cloud data to compare
   const cloudData = await downloadSyncData(accessToken);
 
-  // Compare actual data content, not just timestamps
   let needsSync = true;
   if (localData && cloudData) {
     const localHash = createDataHash(localData);
@@ -440,7 +456,6 @@ export async function getSyncStatus(
 export async function deleteSyncData(accessToken: string): Promise<void> {
   const files = await findAllSyncFiles(accessToken);
 
-  // Delete all sync files
   await Promise.all(
     files.map(async (file) => {
       const response = await fetch(
