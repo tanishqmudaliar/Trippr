@@ -4,7 +4,7 @@ A modern, offline-first invoice and duty management system for transport busines
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Storage](https://img.shields.io/badge/Storage-IndexedDB%20%2B%20localStorage-brightgreen.svg)
@@ -51,11 +51,12 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 ### Dashboard
 
 - Overview stats: Total duties, invoices, revenue, extra KMs, extra hours
-- Recent entries list (last 5) with detailed information
-- Recent invoices list (last 5) with entry count and totals
+- Hero metric tile for Billed Revenue with responsive layout across screen sizes
+- Recent entries list with detailed trip information
+- Spacious multi-tier recent invoices card layout without truncated text
 - Toggle between "All Time" and "Last 30 Days"
 - Cancelled entries excluded from all calculations
-- Responsive card layout
+- Responsive mobile & desktop card grid
 
 ### Duty Entry Management
 
@@ -76,7 +77,7 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 
 ### Excel/CSV Import
 
-- Import from **Excel (.xlsx, .xls)** and **CSV** files
+- Import from **Excel (.xlsx, .xls)** and **CSV** files powered by secure `read-excel-file` and `write-excel-file` libraries
 - Smart column detection by keywords
 - Preview before import with checkbox selection
 - Handles Excel date formats automatically
@@ -128,35 +129,36 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
   - Automatic conversion to PNG format for PDF compatibility
   - Stored in IndexedDB for offline access
   - Max 2MB per file
-- **Vehicle Management**: Add/edit/delete vehicles, set default
-- **Client Management**: Add/edit/delete clients
+- **Vehicle Fleet Management**: Add/edit/delete vehicles, set default
+- **Client Rate Management**: Add/edit/delete clients and custom rates
 - **Cloud Sync (Google Drive)**:
-  - Connect to Google Drive for cross-device sync
-  - Manual sync with conflict resolution
+  - Permanent Google Drive connection with OAuth 2.0 authorization code flow
+  - Silent background refresh token rotation — persistent access without re-login prompts
+  - Dynamic sidebar badge indicating `Local + Cloud` / `Local-First` status and last sync time
+  - Manual on-demand sync with conflict resolution
   - Download cloud data as backup
   - Clear cloud data option
-  - Silent token refresh (no re-login needed)
 - **Local Backup**:
-  - Export full data backup as JSON
+  - Export full data backup as JSON (plain or encrypted AES-GCM)
   - Download all data for offline storage
 - **Reset Everything**: Clear all data and start fresh
-- **Layout**: Reorganized settings page with no blank space
+- **Responsive Layout**: Zero horizontal overflow, touch-optimized button grids on mobile
 
 ---
 
 ## Tech Stack
 
-| Layer                | Technologies                   |
-| -------------------- | ------------------------------ |
-| **Framework**        | Next.js 16 (App Router)        |
-| **Frontend**         | React 19, TypeScript 5         |
-| **State Management** | Zustand + localStorage persist |
-| **Styling**          | Tailwind CSS 4, Framer Motion  |
-| **PDF Generation**   | @react-pdf/renderer            |
-| **Charts**           | Recharts                       |
-| **File Parsing**     | xlsx                           |
-| **Icons**            | Lucide React                   |
-| **Utilities**        | date-fns, GSAP                 |
+| Layer                | Technologies                                       |
+| -------------------- | -------------------------------------------------- |
+| **Framework**        | Next.js 16 (App Router)                            |
+| **Frontend**         | React 19, TypeScript 7                             |
+| **State Management** | Zustand + localStorage persist                     |
+| **Styling**          | Tailwind CSS 4, Framer Motion                      |
+| **PDF Generation**   | @react-pdf/renderer                                |
+| **Charts**           | Recharts                                           |
+| **File Parsing**     | read-excel-file, write-excel-file                  |
+| **Icons**            | Lucide React                                       |
+| **Utilities**        | date-fns, GSAP                                     |
 
 ### Fonts
 
@@ -230,6 +232,9 @@ npm run lint     # ESLint
 trippr/
 ├── src/
 │   ├── app/                          # Next.js App Router
+│   │   ├── api/auth/google/          # Google OAuth server endpoints
+│   │   │   ├── token/route.ts        # Code exchange for tokens
+│   │   │   └── refresh/route.ts      # Silent background token refresh
 │   │   ├── page.tsx                  # Landing Page (/)
 │   │   ├── dashboard/page.tsx        # Dashboard (/dashboard)
 │   │   ├── entries/page.tsx          # Duty entries (/entries)
@@ -239,7 +244,9 @@ trippr/
 │   │   ├── setup/                    # Setup wizard (/setup)
 │   │   ├── privacy/page.tsx          # Privacy Policy (/privacy)
 │   │   ├── terms/page.tsx            # Terms of Service (/terms)
-│   │   ├── oauth-callback/page.tsx   # OAuth handler
+│   │   ├── oauth-callback/page.tsx   # OAuth callback handler
+│   │   ├── robots.ts                 # Dynamic robots.txt
+│   │   ├── sitemap.ts                # Dynamic sitemap.xml
 │   │   ├── layout.tsx                # Root layout with sidebar
 │   │   ├── globals.css               # Global styles
 │   │   ├── manifest.json             # PWA manifest
@@ -304,7 +311,8 @@ Trippr works fully offline with zero required environment variables. Add configu
 
 | Variable | Required | Purpose | Example |
 | -------- | -------- | ------- | ------- |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Optional (required only for Google Drive sync) | Enables OAuth login and Drive appDataFolder sync. | `1234567890-abc.apps.googleusercontent.com` |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Optional (required for Google Drive sync) | Google OAuth 2.0 Client ID for frontend authorization code flow. | `1234567890-abc.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Optional (required for Google Drive sync) | Google OAuth 2.0 Client Secret for server-side authorization code exchange and silent refresh. | `GOCSPX-abc123xyz...` |
 | `NEXT_PUBLIC_LOGO_BASE64` | Optional | Default logo used when no custom logo is uploaded in settings. | `data:image/png;base64,...` |
 | `NEXT_PUBLIC_SIGNATURE_BASE64` | Optional | Default signature used when no custom signature is uploaded in settings. | `data:image/png;base64,...` |
 
@@ -738,10 +746,10 @@ This hybrid approach enables:
 
 | Limitation            | Description                                        |
 | --------------------- | -------------------------------------------------- |
-| **Single User**       | No multi-user or access control                    |
-| **Browser Dependent** | Clearing browser data deletes local copy           |
-| **Storage Cap**       | ~5,000 entries recommended maximum                 |
-| **Manual Sync**       | Cloud sync requires manual trigger (not automatic) |
+| **Single User**       | Single-tenant local data store without multi-user roles or permissions |
+| **Browser Dependent** | Clearing browser data removes local storage copy (prevented by connecting Google Drive cloud sync) |
+| **Storage Cap**       | ~5,000 entries recommended maximum for browser storage |
+| **Cloud Sync Strategy** | Continuous local-first operation with silent background token refresh and on-demand cloud sync checkpoints |
 
 ### Data Safety Tips
 
