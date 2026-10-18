@@ -203,6 +203,7 @@ export default function EntriesPage() {
   const { showNotification } = useNotification();
   const {
     entries,
+    invoices,
     clients,
     addEntry,
     updateEntry,
@@ -1225,6 +1226,25 @@ export default function EntriesPage() {
     );
   }, [entries, filterClientId, searchQuery]);
 
+  const invoicedEntryIds = useMemo(() => {
+    return new Set(invoices.flatMap((inv) => inv.entryIds));
+  }, [invoices]);
+
+  const filteredStats = useMemo(() => {
+    const kms = filteredEntries.reduce(
+      (sum, e) => sum + (e.cancelled ? 0 : e.totalKms),
+      0,
+    );
+    const hours = filteredEntries.reduce(
+      (sum, e) => sum + (e.cancelled ? 0 : e.totalTime),
+      0,
+    );
+    const unbilled = filteredEntries.filter(
+      (e) => !invoicedEntryIds.has(e.id),
+    ).length;
+    return { kms, hours, unbilled };
+  }, [filteredEntries, invoicedEntryIds]);
+
   // Download entries
   const handleDownloadEntries = async (format: "xlsx" | "csv") => {
     const entriesToExport = filteredEntries;
@@ -1368,93 +1388,46 @@ export default function EntriesPage() {
         animate={{ opacity: 1 }}
         className="space-y-6 lg:space-y-8 pb-8"
       >
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        {/* Header with Action Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-cream-200/80">
           <div>
-            <h1 className="font-display text-2xl lg:text-4xl font-bold text-navy-900 mb-2">
-              Duty Entries
-            </h1>
-            <p className="text-navy-500 text-sm lg:text-lg">
-              Record and manage your daily duty logs
-            </p>
-          </div>
-          <motion.button
-            onClick={() => {
-              resetForm();
-              setEntryMode("select");
-              setShowForm(true);
-            }}
-            className="btn-primary"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus className="w-5 h-5" />
-            Add New Entry
-          </motion.button>
-        </div>
-
-        {/* Filter by Client */}
-        {clients.length > 1 && (
-          <div className="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-saffron-500" />
-              <span className="font-medium text-navy-700">
-                Filter by Client:
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="font-display text-2xl lg:text-3xl font-bold text-navy-950 tracking-tight">
+                Duty Entries
+              </h1>
+              <span className="badge badge-saffron text-xs">
+                {filteredEntries.length} Recorded
               </span>
             </div>
-            <select
-              value={filterClientId}
-              onChange={(e) => setFilterClientId(e.target.value)}
-              className="input-field w-auto py-2"
-            >
-              <option value="">All Clients</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            {filterClientId && (
-              <button
-                onClick={() => setFilterClientId("")}
-                className="text-sm text-saffron-600 hover:text-saffron-700 font-medium"
-              >
-                Clear Filter
-              </button>
-            )}
+            <p className="text-xs sm:text-sm text-navy-500 font-medium">
+              Log daily odometer runnings, duty timings, tolls, and client assignments
+            </p>
           </div>
-        )}
 
-        {/* Search & Download Bar */}
-        {entries.length > 0 && (
-          <div className="flex flex-row gap-3">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by duty ID, date, client, remark..."
-                className="input-field w-full"
-                style={{ paddingLeft: "2.5rem" }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full hover:bg-cream-200 flex items-center justify-center"
-                >
-                  <X className="w-3 h-3 text-navy-400" />
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => {
+                resetForm();
+                setEntryMode("upload");
+                setShowForm(true);
+              }}
+              className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-subtle flex items-center gap-2"
+              title="Upload spreadsheet"
+            >
+              <Upload className="w-4 h-4 text-navy-600" />
+              <span>Import Log</span>
+            </button>
+
+            {/* Export Dropdown */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="btn-secondary flex items-center gap-2 whitespace-nowrap h-full"
+                className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-subtle flex items-center gap-2"
                 title="Export entries"
               >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
+                <Download className="w-4 h-4 text-navy-600" />
+                <span>Export</span>
+                <ChevronDown className="w-3.5 h-3.5 text-navy-400" />
               </button>
               <AnimatePresence>
                 {showExportMenu && (
@@ -1462,34 +1435,137 @@ export default function EntriesPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-lg border border-cream-200 overflow-hidden z-30 min-w-40"
+                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-elevated border border-cream-200 overflow-hidden z-30 min-w-44"
                   >
                     <button
                       onClick={() => {
                         handleDownloadEntries("xlsx");
                         setShowExportMenu(false);
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-navy-700 hover:bg-cream-50 flex items-center gap-2 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-800 hover:bg-cream-50 flex items-center gap-2.5 transition-colors"
                     >
-                      <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                      Excel (.xlsx)
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      Excel Workbook (.xlsx)
                     </button>
                     <button
                       onClick={() => {
                         handleDownloadEntries("csv");
                         setShowExportMenu(false);
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm font-medium text-navy-700 hover:bg-cream-50 flex items-center gap-2 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-800 hover:bg-cream-50 flex items-center gap-2.5 transition-colors border-t border-cream-100"
                     >
                       <FileText className="w-4 h-4 text-blue-600" />
-                      CSV (.csv)
+                      CSV Spreadsheet (.csv)
                     </button>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
+
+            <motion.button
+              onClick={() => {
+                resetForm();
+                setEntryMode("manual");
+                setShowForm(true);
+              }}
+              className="btn-primary text-xs sm:text-sm py-2 px-4 shadow-sm"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Entry</span>
+            </motion.button>
           </div>
-        )}
+        </div>
+
+        {/* Live Filter & Summary Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+              Filtered Trips
+            </span>
+            <span className="font-mono text-lg font-bold text-navy-950">
+              {filteredEntries.length}
+            </span>
+          </div>
+          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+              Total Distance
+            </span>
+            <span className="font-mono text-lg font-bold text-saffron-700">
+              {filteredStats.kms.toLocaleString()} km
+            </span>
+          </div>
+          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+              Total Duration
+            </span>
+            <span className="font-mono text-lg font-bold text-navy-950">
+              {formatDuration(filteredStats.hours)}
+            </span>
+          </div>
+          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+              Unbilled Pipeline
+            </span>
+            <span className="font-mono text-lg font-bold text-emerald-700">
+              {filteredStats.unbilled} trips
+            </span>
+          </div>
+        </div>
+
+        {/* Search & Client Filter Bar */}
+        <div className="card p-3 sm:p-4 border border-cream-200/90 shadow-subtle flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Duty ID, client, date, or remark..."
+              className="input-field w-full py-2 pl-9.5 text-xs sm:text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full hover:bg-cream-200 flex items-center justify-center text-navy-400 hover:text-navy-700"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-44 flex-1 sm:flex-none">
+              <Building2 className="w-4 h-4 text-navy-400 shrink-0" />
+              <select
+                value={filterClientId}
+                onChange={(e) => setFilterClientId(e.target.value)}
+                className="input-field py-2 text-xs sm:text-sm flex-1"
+              >
+                <option value="">All Clients ({clients.length})</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(filterClientId || searchQuery) && (
+              <button
+                onClick={() => {
+                  setFilterClientId("");
+                  setSearchQuery("");
+                }}
+                className="btn-ghost text-xs py-2 px-3 text-saffron-700 hover:bg-saffron-50 shrink-0"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Entries List - Card-based design for better mobile/desktop experience */}
         <div className="space-y-4">
