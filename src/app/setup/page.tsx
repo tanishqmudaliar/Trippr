@@ -40,6 +40,7 @@ import {
   isTokenValid,
   type GoogleAuthState,
 } from "@/lib/googleDrive";
+import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 type Step = "company" | "profile" | "vehicle" | "client" | "branding";
 
@@ -1016,17 +1017,35 @@ export default function SetupPage() {
                   />
 
                   {/* Live Plate Preview */}
-                  {vehicleData.numberPlate.trim() && (
-                    <div className="p-3.5 rounded-xl bg-cream-50/80 border border-cream-200/80 flex items-center justify-between">
-                      <span className="text-xs text-navy-500 font-medium">Plate Preview:</span>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-200/90 border border-amber-400/80 shadow-xs">
-                        <span className="text-[10px] font-bold text-amber-900">IND</span>
-                        <span className="font-mono text-xs font-bold text-navy-950 tracking-wider">
-                          {vehicleData.numberPlate.toUpperCase()}
-                        </span>
+                  {vehicleData.numberPlate.trim() && (() => {
+                    const setupJurisdiction = detectIndianJurisdiction(vehicleData.numberPlate);
+                    return (
+                      <div className="p-3.5 rounded-xl bg-cream-50/80 border border-cream-200/80 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-navy-500 font-medium">Plate Preview:</span>
+                          {setupJurisdiction.code !== "IND" && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              setupJurisdiction.isBharatSeries
+                                ? "bg-blue-50 text-blue-700 border border-blue-200/70"
+                                : setupJurisdiction.type === "union_territory"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200/70"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                            }`}>
+                              {setupJurisdiction.name} ({setupJurisdiction.typeLabel})
+                            </span>
+                          )}
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-200/90 border border-amber-400/80 shadow-xs">
+                          <span className="text-[10px] font-bold text-amber-900 tracking-wider">
+                            {setupJurisdiction.displayPill}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-navy-950 tracking-wider">
+                            {vehicleData.numberPlate.toUpperCase()}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   <InputField
                     label="Vehicle Model / Make"

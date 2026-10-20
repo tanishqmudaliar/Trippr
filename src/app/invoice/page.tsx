@@ -20,6 +20,14 @@ import {
   Trash2,
   Save,
   Search,
+  Check,
+  CheckCircle2,
+  TrendingUp,
+  Clock,
+  ArrowRight,
+  ExternalLink,
+  ClipboardList,
+  Sparkles,
 } from "lucide-react";
 import {
   formatDate,
@@ -29,17 +37,54 @@ import {
   getEntryDayCount,
   formatDuration,
   decimalToTime,
+  getInvoiceVehicleNumber,
+  getInvoiceVehicle,
 } from "@/lib/types";
-import type { DutyEntry, Client, CompanyInfo } from "@/lib/types";
+import type { DutyEntry, Client, CompanyInfo, Vehicle } from "@/lib/types";
 import { createPortal } from "react-dom";
 import { InvoicePDFDownload } from "@/components/InvoicePDF";
 import { getAssetWithFallback } from "@/lib/assetStorage";
 import DutyEntryCard from "@/components/DutyEntryCard";
+import { FleetVehicleSelector } from "@/components/FleetVehicleSelector";
+import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 type TabType = "create" | "edit";
 
 export default function InvoicePage() {
   const [activeTab, setActiveTab] = useState<TabType>("create");
+
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      if (typeof window === "undefined") return;
+      const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab")?.toLowerCase();
+
+      if (hash === "#manage" || hash === "#edit" || tabParam === "manage" || tabParam === "edit") {
+        setActiveTab("edit");
+      } else if (hash === "#create" || tabParam === "create") {
+        setActiveTab("create");
+      }
+    };
+
+    syncTabFromUrl();
+    window.addEventListener("hashchange", syncTabFromUrl);
+    window.addEventListener("popstate", syncTabFromUrl);
+    return () => {
+      window.removeEventListener("hashchange", syncTabFromUrl);
+      window.removeEventListener("popstate", syncTabFromUrl);
+    };
+  }, []);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const targetHash = tab === "edit" ? "#manage" : "#create";
+      if (window.location.hash !== targetHash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${targetHash}`);
+      }
+    }
+  };
 
   return (
     <motion.div
@@ -61,7 +106,7 @@ export default function InvoicePage() {
         {/* Tab Buttons */}
         <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-white border border-cream-200/90 shadow-subtle">
           <button
-            onClick={() => setActiveTab("create")}
+            onClick={() => handleTabChange("create")}
             className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === "create"
                 ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
@@ -72,7 +117,7 @@ export default function InvoicePage() {
             <span>Create Invoice</span>
           </button>
           <button
-            onClick={() => setActiveTab("edit")}
+            onClick={() => handleTabChange("edit")}
             className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === "edit"
                 ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
@@ -146,6 +191,7 @@ function CreateInvoiceTab() {
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [vehicleId, setVehicleId] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
 
   // Assets for PDF
@@ -173,13 +219,14 @@ function CreateInvoiceTab() {
   }, [clients, selectedClientId]);
 
   useEffect(() => {
-    if (!vehicleNumber) {
+    if (!vehicleId) {
       const defaultVehicle = getDefaultVehicle();
       if (defaultVehicle) {
+        setVehicleId(defaultVehicle.id);
         setVehicleNumber(defaultVehicle.numberPlate);
       }
     }
-  }, [getDefaultVehicle, vehicleNumber]);
+  }, [getDefaultVehicle, vehicleId]);
 
   const selectedClient = useMemo(() => {
     return clients.find((c) => c.id === selectedClientId);
@@ -232,6 +279,9 @@ function CreateInvoiceTab() {
     if (!selectedClientId) {
       return "Please select a client";
     }
+    if (!vehicleId && !vehicleNumber) {
+      return "Please select a fleet vehicle";
+    }
     if (selectedEntries.length === 0) {
       return "Please select at least one entry";
     }
@@ -259,8 +309,9 @@ function CreateInvoiceTab() {
         invoiceNumber,
         invoiceDate,
         selectedClientId,
-        vehicleNumber,
+        vehicleId || vehicleNumber,
         selectedEntries,
+        vehicleNumber,
       );
       showNotification("Invoice replaced successfully", "success");
     }
@@ -302,8 +353,9 @@ function CreateInvoiceTab() {
       invoiceNumber,
       invoiceDate,
       selectedClientId,
-      vehicleNumber,
+      vehicleId || vehicleNumber,
       selectedEntries,
+      vehicleNumber,
     );
     updateLastUpdatedTime();
     showNotification("Invoice created and downloaded successfully", "success");
@@ -328,8 +380,9 @@ function CreateInvoiceTab() {
       invoiceNumber,
       invoiceDate,
       selectedClientId,
-      vehicleNumber,
+      vehicleId || vehicleNumber,
       selectedEntries,
+      vehicleNumber,
     );
     updateLastUpdatedTime();
     showNotification("Invoice saved successfully", "success");
@@ -419,9 +472,13 @@ function CreateInvoiceTab() {
               setSelectedClientId(id);
               setSelectedEntries([]);
             }}
+            vehicleId={vehicleId}
+            setVehicleId={setVehicleId}
             vehicleNumber={vehicleNumber}
             setVehicleNumber={setVehicleNumber}
             clients={clients}
+            validationError={validationError}
+            setValidationError={setValidationError}
           />
           {selectedClient && <ClientRatesCard client={selectedClient} />}
         </div>
@@ -548,17 +605,23 @@ function EditInvoiceTab() {
     updateInvoice,
     deleteInvoice,
     updateLastUpdatedTime,
+    vehicles,
   } = useStore();
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>("");
   const [editedEntries, setEditedEntries] = useState<string[]>([]);
   const [editedInvoiceNumber, setEditedInvoiceNumber] = useState("");
   const [editedInvoiceDate, setEditedInvoiceDate] = useState("");
+  const [editedVehicleId, setEditedVehicleId] = useState("");
   const [editedVehicleNumber, setEditedVehicleNumber] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>("");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
+
+  // Manage Invoices Search & Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterClientId, setFilterClientId] = useState("");
 
   // Assets for PDF
   const [logoBase64, setLogoBase64] = useState<string>("");
@@ -593,9 +656,11 @@ function EditInvoiceTab() {
       setEditedEntries(selectedInvoice.entryIds);
       setEditedInvoiceNumber(selectedInvoice.invoiceNumber);
       setEditedInvoiceDate(selectedInvoice.invoiceDate);
-      setEditedVehicleNumber(selectedInvoice.vehicleNumberForInvoice);
+      setEditedVehicleId(selectedInvoice.vehicleId || "");
+      const resolvedPlate = getInvoiceVehicleNumber(selectedInvoice, vehicles);
+      setEditedVehicleNumber(resolvedPlate);
     }
-  }, [selectedInvoice]);
+  }, [selectedInvoice, vehicles]);
 
   // Get entries for this client
   const clientEntries = useMemo(() => {
@@ -639,6 +704,9 @@ function EditInvoiceTab() {
     if (!editedInvoiceNumber.trim()) {
       return "Invoice number is required";
     }
+    if (!editedVehicleId && !editedVehicleNumber) {
+      return "Please select a fleet vehicle";
+    }
     if (editedEntries.length === 0) {
       return "Please select at least one entry";
     }
@@ -659,6 +727,7 @@ function EditInvoiceTab() {
     updateInvoice(selectedInvoiceId, {
       invoiceNumber: editedInvoiceNumber,
       invoiceDate: editedInvoiceDate,
+      vehicleId: editedVehicleId || undefined,
       vehicleNumberForInvoice: editedVehicleNumber,
       entryIds: editedEntries,
     });
@@ -678,6 +747,35 @@ function EditInvoiceTab() {
     setShowDeleteConfirm(false);
   };
 
+  // Filtered Invoices for Manage Invoices
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      if (filterClientId && invoice.clientId !== filterClientId) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const client = clients.find((c) => c.id === invoice.clientId);
+        const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles).toLowerCase();
+        const invoiceNum = invoice.invoiceNumber.toLowerCase();
+        const clientName = client?.name.toLowerCase() || "";
+        const formattedDate = formatDate(invoice.invoiceDate).toLowerCase();
+        return (
+          invoiceNum.includes(q) ||
+          resolvedPlate.includes(q) ||
+          clientName.includes(q) ||
+          formattedDate.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [invoices, searchQuery, filterClientId, clients, vehicles]);
+
+  const totalFilteredRevenue = useMemo(
+    () => filteredInvoices.reduce((sum, inv) => sum + inv.roundedTotal, 0),
+    [filteredInvoices],
+  );
+
   // These are guaranteed to be non-null after setup is complete
   if (!companyInfo || !userProfile) {
     return null;
@@ -688,64 +786,314 @@ function EditInvoiceTab() {
     selectedInvoice &&
     (editedInvoiceNumber !== selectedInvoice.invoiceNumber ||
       editedInvoiceDate !== selectedInvoice.invoiceDate ||
+      editedVehicleId !== (selectedInvoice.vehicleId || "") ||
       editedVehicleNumber !== selectedInvoice.vehicleNumberForInvoice ||
-      JSON.stringify(editedEntries.sort()) !==
-        JSON.stringify(selectedInvoice.entryIds.sort()));
+      JSON.stringify([...editedEntries].sort()) !==
+        JSON.stringify([...selectedInvoice.entryIds].sort()));
 
   return (
     <>
-      {/* Invoice Selector */}
-      <div className="card p-4 lg:p-6 mb-6">
-        <h2 className="font-display text-lg font-semibold text-navy-900 mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-saffron-500" />
-          Manage Invoices
-        </h2>
+      {/* Manage Invoices Hub */}
+      <div className="card p-4 sm:p-5 lg:p-6 mb-6 border border-cream-200/90 shadow-subtle">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-cream-200/80 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-navy-50 border border-navy-200/70 flex items-center justify-center text-navy-700 shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-display text-lg lg:text-xl font-bold text-navy-950">
+                  Manage Invoices
+                </h2>
+                <span className="badge badge-navy text-xs">
+                  {invoices.length} {invoices.length === 1 ? "Record" : "Records"}
+                </span>
+              </div>
+              <p className="text-xs text-navy-500 font-medium mt-0.5">
+                Audit, edit, and export tax invoices with dynamic fleet registration tracking
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Search, Filter & View Controls */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mb-5">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by invoice #, client, vehicle plate, or date..."
+              className="input-field w-full py-2 pl-9.5 text-xs sm:text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full hover:bg-cream-200 flex items-center justify-center text-navy-400 hover:text-navy-700"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Client Filter */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-44 flex-1 sm:flex-none">
+              <Building2 className="w-4 h-4 text-navy-400 shrink-0" />
+              <select
+                value={filterClientId}
+                onChange={(e) => setFilterClientId(e.target.value)}
+                className="input-field py-2 text-xs sm:text-sm flex-1"
+              >
+                <option value="">All Clients ({clients.length})</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(filterClientId || searchQuery) && (
+              <button
+                onClick={() => {
+                  setFilterClientId("");
+                  setSearchQuery("");
+                }}
+                className="btn-ghost text-xs py-2 px-3 text-saffron-700 hover:bg-saffron-50 shrink-0"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Filter Summary Bar */}
+        {filteredInvoices.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-navy-500 pb-3 mb-4 border-b border-cream-100 flex-wrap gap-2">
+            <span>
+              Showing <strong>{filteredInvoices.length}</strong> of <strong>{invoices.length}</strong> invoices
+            </span>
+            <span className="font-medium text-navy-700">
+              Total Filtered Volume:{" "}
+              <strong className="font-mono text-saffron-700 font-bold">
+                {formatCurrency(totalFilteredRevenue)}
+              </strong>
+            </span>
+          </div>
+        )}
+
+        {/* Invoice Grid */}
         {invoices.length === 0 ? (
-          <div className="text-center py-8">
-            <FileText className="w-12 h-12 mx-auto mb-4 text-cream-400" />
-            <p className="text-navy-500">
-              No invoices found. Create one first!
+          <div className="text-center py-12 px-4 rounded-xl border border-dashed border-cream-300 bg-cream-50/40 my-2">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-navy-100 flex items-center justify-center text-navy-700 shadow-xs">
+              <FileText className="w-6 h-6" />
+            </div>
+            <h3 className="font-display text-base font-bold text-navy-900 mb-1">
+              No invoices generated yet
+            </h3>
+            <p className="text-xs text-navy-500 mb-4 max-w-xs mx-auto">
+              Select duty slips in Create Invoice tab to generate GST-compliant tax invoices.
             </p>
           </div>
+        ) : filteredInvoices.length === 0 ? (
+          <div className="text-center py-10 px-4 rounded-xl border border-dashed border-cream-300 bg-cream-50/40 my-2">
+            <Search className="w-8 h-8 mx-auto mb-2 text-navy-400" />
+            <h3 className="font-display text-base font-bold text-navy-900 mb-1">
+              No matching invoices
+            </h3>
+            <p className="text-xs text-navy-500 mb-3">
+              Try adjusting your search criteria or resetting filters.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setFilterClientId("");
+              }}
+              className="btn-secondary text-xs py-1.5 px-3"
+            >
+              Reset Filters
+            </button>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {invoices.map((invoice) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredInvoices.map((invoice) => {
               const client = clients.find((c) => c.id === invoice.clientId);
               const isSelected = selectedInvoiceId === invoice.id;
               const invoiceEntries = entries.filter((e) =>
                 invoice.entryIds.includes(e.id),
               );
+              const totalDays = invoiceEntries.reduce(
+                (sum, e) => sum + getEntryDayCount(e),
+                0,
+              );
+              const totalKms = invoiceEntries.reduce(
+                (sum, e) => sum + (e.cancelled ? 0 : e.totalKms),
+                0,
+              );
+              const totalHours = invoiceEntries.reduce(
+                (sum, e) => sum + (e.cancelled ? 0 : e.totalTime),
+                0,
+              );
+              const totalExtraKms = invoiceEntries.reduce(
+                (sum, e) => sum + (e.cancelled ? 0 : e.extraKms),
+                0,
+              );
               const invoiceTotals = client
                 ? calculateInvoiceTotals(invoiceEntries, client)
                 : null;
+
+              const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles);
+              const isLinkedToFleet = Boolean(
+                invoice.vehicleId && vehicles.some((v) => v.id === invoice.vehicleId),
+              );
+              const linkedVehicle = invoice.vehicleId
+                ? vehicles.find((v) => v.id === invoice.vehicleId)
+                : undefined;
+              const plateJurisdiction = detectIndianJurisdiction(resolvedPlate);
+
               return (
                 <motion.div
                   key={invoice.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-4.5 rounded-2xl border transition-all ${
+                  className={`p-4 sm:p-5 rounded-2xl border transition-all space-y-3.5 ${
                     isSelected
-                      ? "border-saffron-500 bg-saffron-50/80 shadow-soft"
-                      : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
+                      ? "border-saffron-500 bg-saffron-50/70 shadow-soft ring-2 ring-saffron-300/60"
+                      : "border-cream-200/90 bg-white hover:border-saffron-300 shadow-2xs hover:shadow-soft group"
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="font-mono font-semibold text-navy-900">
-                      #{invoice.invoiceNumber}
-                    </span>
-                    <div className="flex items-center gap-1">
+                  {/* Row 1: Invoice #, Date, Plate, Net Total */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+                        <FileText className="w-5 h-5 text-navy-600 group-hover:text-saffron-600 transition-colors" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-display text-base font-bold text-navy-950">
+                            #{invoice.invoiceNumber}
+                          </h3>
+                          <span className="text-xs text-navy-400 font-medium">
+                            ({formatDate(invoice.invoiceDate)})
+                          </span>
+                          {isSelected && (
+                            <span className="badge badge-saffron text-[10px] py-0.5 px-2 font-semibold">
+                              Editing Now
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Vehicle Number Display with Indian Plate chip aesthetic */}
+                        <div className="flex items-center gap-2 text-xs text-navy-600 mt-1.5 flex-wrap">
+                          <Car className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+                          {isLinkedToFleet ? (
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
+                              <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
+                                {plateJurisdiction.displayPill}
+                              </span>
+                              <span className="font-mono text-xs font-bold text-navy-950 tracking-wider whitespace-nowrap">
+                                {resolvedPlate}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-800 font-mono text-xs font-semibold shrink-0 whitespace-nowrap">
+                              <span className="whitespace-nowrap">{invoice.vehicleNumberForInvoice || "Unlinked"}</span>
+                              <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded uppercase font-bold shrink-0">
+                                Legacy
+                              </span>
+                            </div>
+                          )}
+                          {linkedVehicle?.model && (
+                            <span className="text-[11px] text-navy-400 truncate max-w-28 hidden md:inline" title={linkedVehicle.model}>
+                              • {linkedVehicle.model}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Net Billed Total Pill */}
+                    <div className="bg-cream-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                        Net Billed Total
+                      </span>
+                      <span className="font-mono text-base sm:text-lg font-bold text-saffron-700 leading-tight whitespace-nowrap">
+                        {formatCurrency(invoice.roundedTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Billed Client */}
+                  <div className="pt-2 border-t border-cream-200/60 flex items-start gap-2.5">
+                    <Building2 className="w-4 h-4 text-navy-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                        Billed Client
+                      </span>
+                      <p className="text-sm font-semibold text-navy-900 break-words leading-snug">
+                        {client?.name || "Unknown Client"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Operational Metrics Pills */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 text-navy-700 text-xs shadow-2xs">
+                      <ClipboardList className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                      <span className="font-medium">
+                        {invoice.entryIds.length} {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
+                      </span>
+                      <span className="text-navy-300">•</span>
+                      <span className="text-navy-500 font-medium">
+                        {totalDays} {totalDays === 1 ? "day" : "days"}
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
+                      <span>{totalKms} km</span>
+                      <span className="text-navy-300">•</span>
+                      <span>{formatDuration(totalHours)}</span>
+                    </div>
+
+                    {totalExtraKms > 0 && (
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
+                        <TrendingUp className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                        <span>+{totalExtraKms} km</span>
+                      </div>
+                    )}
+
+                    {invoice.totalTollParking > 0 && (
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
+                        <span>Toll: {formatCurrency(invoice.totalTollParking)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 4: Card Actions Toolbar */}
+                  <div className="pt-3 border-t border-cream-200/80 flex items-center justify-end gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                       <button
                         onClick={() => setSelectedInvoiceId(invoice.id)}
-                        className="w-8 h-8 rounded-lg bg-cream-100 hover:bg-saffron-100 flex items-center justify-center transition-colors"
-                        title="Edit"
+                        className={`btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 transition-all ${
+                          isSelected ? "bg-saffron-100 text-saffron-800 border-saffron-300" : ""
+                        }`}
+                        title="Edit invoice details"
                       >
-                        <Edit3 className="w-4 h-4 text-navy-600" />
+                        <Edit3 className="w-3.5 h-3.5 text-navy-600" />
+                        <span>{isSelected ? "Editing" : "Edit"}</span>
                       </button>
+
                       {client && invoiceTotals && companyInfo && (
                         <InvoicePDFDownload
                           companyInfo={companyInfo}
                           client={client}
-                          vehicleNumber={invoice.vehicleNumberForInvoice}
+                          vehicleNumber={resolvedPlate}
                           invoiceNumber={invoice.invoiceNumber}
                           invoiceDate={invoice.invoiceDate}
                           entries={invoiceEntries}
@@ -756,27 +1104,20 @@ function EditInvoiceTab() {
                           signatureBase64={signatureBase64}
                         />
                       )}
+
                       <button
                         onClick={() => {
                           setDeleteTargetId(invoice.id);
                           setShowDeleteConfirm(true);
                         }}
-                        className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
-                        title="Delete"
+                        className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 transition-colors"
+                        title="Delete invoice"
+                        aria-label="Delete invoice"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-navy-500 mb-1">
-                    {formatDate(invoice.invoiceDate)}
-                  </p>
-                  <p className="text-sm text-navy-600 mb-2 truncate">
-                    {client?.name || "Unknown"}
-                  </p>
-                  <p className="font-mono font-bold text-saffron-600">
-                    {formatCurrency(invoice.roundedTotal)}
-                  </p>
                 </motion.div>
               );
             })}
@@ -787,23 +1128,42 @@ function EditInvoiceTab() {
       {/* Edit Form */}
       {selectedInvoice && selectedClient && (
         <>
-          {/* Action Buttons */}
-          <div className="flex gap-3 justify-end mb-6">
-            <button
-              onClick={() => setShowPreview(true)}
-              className="btn-secondary"
-            >
-              <Eye className="w-4 h-4" />
-              Preview
-            </button>
-            <button
-              onClick={handleUpdateInvoice}
-              disabled={!hasChanges || editedEntries.length === 0}
-              className="btn-primary disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              Update Invoice
-            </button>
+          {/* Active Editing Anchor Bar */}
+          <div className="p-3.5 rounded-2xl bg-saffron-50/90 border border-saffron-200 shadow-subtle flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-saffron-500 animate-pulse" />
+              <div>
+                <p className="text-xs font-bold text-saffron-950">
+                  Editing Tax Invoice #{selectedInvoice.invoiceNumber}
+                </p>
+                <p className="text-[11px] text-saffron-700">
+                  Modify date, assign fleet vehicles, and re-calculate duty entries
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedInvoiceId("")}
+                className="btn-ghost text-xs py-1.5 px-3 text-saffron-800 hover:bg-saffron-100"
+              >
+                Close Editor
+              </button>
+              <button
+                onClick={() => setShowPreview(true)}
+                className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Preview</span>
+              </button>
+              <button
+                onClick={handleUpdateInvoice}
+                disabled={!hasChanges || editedEntries.length === 0}
+                className="btn-primary text-xs py-1.5 px-3.5 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Changes</span>
+              </button>
+            </div>
           </div>
 
           {/* Validation Error */}
@@ -816,7 +1176,7 @@ function EditInvoiceTab() {
                 className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 mb-6"
               >
                 <AlertCircle className="w-5 h-5 text-red-500" />
-                <p className="text-red-700">{validationError}</p>
+                <p className="text-red-700 text-xs sm:text-sm font-medium">{validationError}</p>
                 <button
                   onClick={() => setValidationError(null)}
                   className="ml-auto w-6 h-6 rounded-lg hover:bg-red-100 flex items-center justify-center"
@@ -838,26 +1198,29 @@ function EditInvoiceTab() {
                 validationError={validationError}
                 setValidationError={setValidationError}
               />
-              <div className="card p-4 lg:p-6">
+              <div className="card p-4 lg:p-6 border border-cream-200/90 shadow-subtle">
                 <h2 className="font-display text-lg font-semibold text-navy-900 mb-4 flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-saffron-500" />
-                  Client
+                  Client & Vehicle Assignment
                 </h2>
-                <p className="font-medium text-navy-800">
-                  {selectedClient.name}
-                </p>
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-navy-700 mb-2">
-                    <Car className="w-4 h-4 inline mr-1" />
-                    Vehicle Number
-                  </label>
-                  <input
-                    type="text"
-                    value={editedVehicleNumber}
-                    onChange={(e) => setEditedVehicleNumber(e.target.value)}
-                    className="input-field font-mono"
-                  />
+                <div className="mb-4 pb-3 border-b border-cream-200/80">
+                  <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block mb-0.5">
+                    Assigned Client
+                  </span>
+                  <p className="text-sm font-semibold text-navy-900">
+                    {selectedClient.name}
+                  </p>
                 </div>
+                <FleetVehicleSelector
+                  selectedVehicleId={editedVehicleId}
+                  onSelectVehicle={(id, plate) => {
+                    setEditedVehicleId(id);
+                    setEditedVehicleNumber(plate);
+                  }}
+                  legacyPlateFallback={selectedInvoice.vehicleNumberForInvoice}
+                  label="Assigned Fleet Vehicle"
+                  required
+                />
               </div>
               <ClientRatesCard client={selectedClient} />
             </div>
@@ -917,7 +1280,7 @@ function EditInvoiceTab() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-cream-200"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="p-6 text-center">
@@ -927,12 +1290,11 @@ function EditInvoiceTab() {
                   <h3 className="font-display text-xl font-bold text-navy-900 mb-2">
                     Delete Invoice?
                   </h3>
-                  <p className="text-navy-600">
-                    Are you sure you want to delete invoice #
-                    {
-                      invoices.find((i) => i.id === deleteTargetId)
-                        ?.invoiceNumber
-                    }
+                  <p className="text-navy-600 text-sm">
+                    Are you sure you want to delete invoice{" "}
+                    <strong className="font-mono text-navy-900">
+                      #{invoices.find((i) => i.id === deleteTargetId)?.invoiceNumber}
+                    </strong>
                     ? This action cannot be undone.
                   </p>
                 </div>
@@ -1025,30 +1387,41 @@ function InvoiceDetailsCard({
 function ClientDetailsCard({
   selectedClientId,
   setSelectedClientId,
+  vehicleId,
+  setVehicleId,
   vehicleNumber,
   setVehicleNumber,
   clients,
+  validationError,
+  setValidationError,
 }: {
   selectedClientId: string;
   setSelectedClientId: (v: string) => void;
+  vehicleId: string;
+  setVehicleId: (v: string) => void;
   vehicleNumber: string;
   setVehicleNumber: (v: string) => void;
   clients: Client[];
+  validationError?: string | null;
+  setValidationError?: (v: string | null) => void;
 }) {
   return (
-    <div className="card p-4 lg:p-6">
+    <div className="card p-4 lg:p-6 border border-cream-200/90 shadow-subtle">
       <h2 className="font-display text-lg font-semibold text-navy-900 mb-4 flex items-center gap-2">
         <Building2 className="w-5 h-5 text-saffron-500" />
-        Client Details
+        Client Details & Fleet Vehicle
       </h2>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-2">
-            Client Name
+          <label className="block text-xs font-semibold uppercase tracking-wider text-navy-700 mb-2">
+            Client Name <span className="text-red-500">*</span>
           </label>
           <select
             value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
+            onChange={(e) => {
+              setSelectedClientId(e.target.value);
+              if (validationError && setValidationError) setValidationError(null);
+            }}
             className="input-field"
           >
             <option value="">Select a client</option>
@@ -1060,16 +1433,21 @@ function ClientDetailsCard({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-2">
-            <Car className="w-4 h-4 inline mr-1" />
-            Vehicle Number
-          </label>
-          <input
-            type="text"
-            value={vehicleNumber}
-            onChange={(e) => setVehicleNumber(e.target.value)}
-            className="input-field font-mono"
-            placeholder="e.g., MH-46-BU-6613"
+          <FleetVehicleSelector
+            selectedVehicleId={vehicleId}
+            onSelectVehicle={(id, plate) => {
+              setVehicleId(id);
+              setVehicleNumber(plate);
+              if (validationError && setValidationError) setValidationError(null);
+            }}
+            legacyPlateFallback={vehicleNumber}
+            label="Assigned Fleet Vehicle"
+            required
+            error={
+              validationError && !vehicleId && !vehicleNumber
+                ? "Please select a fleet vehicle"
+                : null
+            }
           />
         </div>
       </div>
@@ -1302,113 +1680,118 @@ function InvoiceSummaryCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="card p-4 lg:p-6"
+      className="rounded-2xl p-4 lg:p-6 bg-linear-to-br from-navy-950 via-navy-900 to-navy-950 text-white shadow-elevated border border-navy-800 relative overflow-hidden"
     >
-      <h2 className="font-display text-lg font-semibold text-navy-900 mb-4">
-        Invoice Summary
-      </h2>
+      <div className="flex items-center justify-between pb-3 border-b border-navy-800/80 mb-4">
+        <h2 className="font-display text-lg font-bold text-white">
+          Invoice Summary
+        </h2>
+        <span className="badge bg-white/10 text-white border-white/20 text-xs">
+          Estimated Bill
+        </span>
+      </div>
       <div className="space-y-3">
         {/* Totals Summary Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-cream-50 rounded-xl mb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-white/5 border border-white/10 rounded-xl mb-2">
           <div className="text-center">
-            <p className="text-xs text-navy-500">Days</p>
-            <p className="font-mono font-semibold text-navy-800">
+            <p className="text-xs text-navy-300">Days</p>
+            <p className="font-mono font-semibold text-white">
               {totals.totalDays}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-navy-500">Total KMs</p>
-            <p className="font-mono font-semibold text-navy-800">
+            <p className="text-xs text-navy-300">Total KMs</p>
+            <p className="font-mono font-semibold text-white">
               {totals.totalKms}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-navy-500">Total Hours</p>
-            <p className="font-mono font-semibold text-navy-800">
+            <p className="text-xs text-navy-300">Total Hours</p>
+            <p className="font-mono font-semibold text-white">
               {formatDuration(totals.totalTime)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-navy-500">Extra KMs</p>
-            <p className="font-mono font-semibold text-saffron-600">
+            <p className="text-xs text-navy-300">Extra KMs</p>
+            <p className="font-mono font-semibold text-saffron-400">
               {totals.totalExtraKms}
             </p>
           </div>
         </div>
-        <div className="flex justify-between py-2">
-          <span className="text-navy-600">
+        <div className="flex justify-between py-2 text-xs sm:text-sm">
+          <span className="text-navy-300">
             Per day ({client.baseKmsPerDay} Kms / {client.baseHoursPerDay}{" "}
             Hours) × {totals.totalDays} Days
           </span>
-          <span className="font-mono font-semibold">
+          <span className="font-mono font-semibold text-white">
             {formatCurrency(totals.perDayAmount)}
           </span>
         </div>
-        <div className="flex justify-between py-2">
-          <span className="text-navy-600">
+        <div className="flex justify-between py-2 text-xs sm:text-sm">
+          <span className="text-navy-300">
             Extra Hours {formatDuration(totals.totalExtraHours)} @{" "}
             {formatCurrency(client.extraHourRate)}/hr
           </span>
-          <span className="font-mono font-semibold">
+          <span className="font-mono font-semibold text-white">
             {formatCurrency(totals.extraHoursAmount)}
           </span>
         </div>
-        <div className="flex justify-between py-2">
-          <span className="text-navy-600">
+        <div className="flex justify-between py-2 text-xs sm:text-sm">
+          <span className="text-navy-300">
             Extra KMs {totals.totalExtraKms} @{" "}
             {formatCurrency(client.extraKmRate)}/km
           </span>
-          <span className="font-mono font-semibold">
+          <span className="font-mono font-semibold text-white">
             {formatCurrency(totals.extraKmsAmount)}
           </span>
         </div>
-        <div className="h-px bg-cream-200 my-2" />
-        <div className="flex justify-between py-2">
-          <span className="text-navy-700 font-medium">Sub Total</span>
-          <span className="font-mono font-semibold">
+        <div className="h-px bg-navy-800/80 my-2" />
+        <div className="flex justify-between py-2 text-xs sm:text-sm">
+          <span className="text-navy-200 font-medium">Sub Total</span>
+          <span className="font-mono font-semibold text-white">
             {formatCurrency(totals.subTotal)}
           </span>
         </div>
         {totals.serviceTax > 0 && (
-          <div className="flex justify-between py-2">
-            <span className="text-navy-600">
+          <div className="flex justify-between py-2 text-xs sm:text-sm">
+            <span className="text-navy-300">
               Service Tax ({client.serviceTaxPercent}%)
             </span>
-            <span className="font-mono">
+            <span className="font-mono text-white">
               {formatCurrency(totals.serviceTax)}
             </span>
           </div>
         )}
-        <div className="flex justify-between py-2">
-          <span className="text-navy-600">Car Parking & Toll Tax</span>
-          <span className="font-mono">
+        <div className="flex justify-between py-2 text-xs sm:text-sm">
+          <span className="text-navy-300">Car Parking & Toll Tax</span>
+          <span className="font-mono text-white">
             {formatCurrency(totals.totalTollParking)}
           </span>
         </div>
         {totals.totalAdditionalCharges > 0 && (
-          <div className="flex justify-between py-2">
-            <span className="text-navy-600">Additional Charges</span>
-            <span className="font-mono">
+          <div className="flex justify-between py-2 text-xs sm:text-sm">
+            <span className="text-navy-300">Additional Charges</span>
+            <span className="font-mono text-white">
               {formatCurrency(totals.totalAdditionalCharges)}
             </span>
           </div>
         )}
-        <div className="h-px bg-cream-200 mt-2 mb-3" />
-        <div className="flex items-center justify-between py-3.5 bg-linear-to-r from-saffron-50/90 to-cream-50 px-4 lg:px-6 rounded-xl border border-saffron-200/80">
+        <div className="h-px bg-navy-800/80 mt-2 mb-3" />
+        <div className="flex items-center justify-between py-3.5 bg-white/10 border border-white/15 px-4 lg:px-6 rounded-xl">
           <div>
-            <span className="font-display text-base font-bold text-navy-950 block">
+            <span className="font-display text-base font-bold text-white block">
               Net Total
             </span>
-            <span className="text-[10px] text-navy-400 font-medium">
+            <span className="text-[10px] text-navy-300 font-medium">
               Rounded total amount in INR
             </span>
           </div>
-          <span className="font-mono text-2xl font-bold text-saffron-700">
+          <span className="font-mono text-2xl font-bold text-saffron-400">
             {formatCurrency(totals.roundedTotal)}
           </span>
         </div>
-        <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-cream-100/60 border border-cream-200/60">
-          <p className="text-xs text-navy-600 font-mono font-medium">
+        <div className="mt-2.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+          <p className="text-xs text-navy-300 font-mono font-medium">
             {numberToWords(totals.roundedTotal)}
           </p>
         </div>

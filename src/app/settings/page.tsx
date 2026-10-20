@@ -30,9 +30,12 @@ import {
   ArrowRight,
   Database,
   Sliders,
+  FileText,
+  Check,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/types";
 import type { Vehicle, Client } from "@/lib/types";
+import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 import {
   getAsset,
   saveAsset,
@@ -70,6 +73,7 @@ export default function SettingsPage() {
     userProfile,
     vehicles,
     clients,
+    invoices,
     updateCompanyInfo,
     updateUserProfile,
     addVehicle,
@@ -1273,42 +1277,60 @@ export default function SettingsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {vehicles.map((vehicle) => (
-                  <motion.div
-                    key={vehicle.id}
-                    layout
-                    className={`card p-4.5 rounded-2xl border transition-all ${
-                      vehicle.isDefault
-                        ? "border-saffron-300 bg-saffron-50/40 shadow-soft"
-                        : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div>
-                        {/* Realistic license plate chip */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-200/80 border border-amber-400/60 shadow-xs">
-                          <span className="text-[10px] font-bold text-amber-900">IND</span>
-                          <span className="font-mono text-xs font-bold text-navy-950 tracking-wider">
-                            {vehicle.numberPlate}
-                          </span>
-                        </div>
-                        <p className="text-sm font-semibold text-navy-800 mt-2">
-                          {vehicle.model || "Commercial Vehicle"}
-                        </p>
-                      </div>
+                {vehicles.map((vehicle) => {
+                  const jurisdiction = detectIndianJurisdiction(vehicle.numberPlate);
+                  return (
+                    <motion.div
+                      key={vehicle.id}
+                      layout
+                      className={`card p-4.5 rounded-2xl border transition-all ${
+                        vehicle.isDefault
+                          ? "border-saffron-300 bg-saffron-50/40 shadow-soft"
+                          : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          {/* Realistic license plate chip with state/UT/BH indicator */}
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-200/80 border border-amber-400/60 shadow-xs">
+                            <span className="text-[10px] font-bold text-amber-900 tracking-wider">
+                              {jurisdiction.displayPill}
+                            </span>
+                            <span className="font-mono text-xs font-bold text-navy-950 tracking-wider">
+                              {vehicle.numberPlate}
+                            </span>
+                          </div>
 
-                      <button
-                        onClick={() => setDefaultVehicle(vehicle.id)}
-                        className={`p-2 rounded-xl transition-all ${
-                          vehicle.isDefault
-                            ? "bg-amber-100 text-amber-600 shadow-xs"
-                            : "bg-cream-100/70 text-navy-400 hover:text-amber-500 hover:bg-amber-50"
-                        }`}
-                        title={vehicle.isDefault ? "Current Default Vehicle" : "Click to set as default"}
-                      >
-                        <Star className={`w-4 h-4 ${vehicle.isDefault ? "fill-current" : ""}`} />
-                      </button>
-                    </div>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="text-sm font-semibold text-navy-800">
+                              {vehicle.model || "Commercial Vehicle"}
+                            </span>
+                            {jurisdiction.code !== "IND" && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                jurisdiction.isBharatSeries
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200/70"
+                                  : jurisdiction.type === "union_territory"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200/70"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                              }`}>
+                                {jurisdiction.name} ({jurisdiction.typeLabel})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setDefaultVehicle(vehicle.id)}
+                          className={`p-2 rounded-xl transition-all ${
+                            vehicle.isDefault
+                              ? "bg-amber-100 text-amber-600 shadow-xs"
+                              : "bg-cream-100/70 text-navy-400 hover:text-amber-500 hover:bg-amber-50"
+                          }`}
+                          title={vehicle.isDefault ? "Current Default Vehicle" : "Click to set as default"}
+                        >
+                          <Star className={`w-4 h-4 ${vehicle.isDefault ? "fill-current" : ""}`} />
+                        </button>
+                      </div>
 
                     <div className="flex items-center justify-between pt-3 border-t border-cream-200/80">
                       <div>
@@ -1334,7 +1356,7 @@ export default function SettingsPage() {
                             setDeleteConfirm({
                               type: "vehicle",
                               id: vehicle.id,
-                              label: `${vehicle.numberPlate} (${vehicle.model})`,
+                              label: `${vehicle.numberPlate} (${vehicle.model || "Commercial Vehicle"})`,
                             })
                           }
                           disabled={vehicles.length <= 1}
@@ -1349,8 +1371,27 @@ export default function SettingsPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Linked Invoices Counter */}
+                    <div className="pt-2 mt-2 border-t border-cream-100 flex items-center justify-between text-xs text-navy-500">
+                      <span className="text-[10px] text-navy-400 font-medium uppercase tracking-wider">
+                        Linked Invoices:
+                      </span>
+                      {(() => {
+                        const linkedCount = invoices.filter((inv) => inv.vehicleId === vehicle.id).length;
+                        return linkedCount > 0 ? (
+                          <span className="badge badge-emerald text-[10px] font-semibold flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" />
+                            {linkedCount} {linkedCount === 1 ? "invoice" : "invoices"}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-navy-400">0 invoices</span>
+                        );
+                      })()}
+                    </div>
                   </motion.div>
-                ))}
+                );
+              })}
               </div>
             )}
           </motion.div>
@@ -1904,11 +1945,42 @@ export default function SettingsPage() {
                       })
                     }
                     className="input-field font-mono uppercase tracking-wider"
-                    placeholder="e.g. MH-46-BU-6613"
+                    placeholder="e.g. MH-46-BU-6613 or 22 BH 1234 AA"
                     autoFocus
                   />
-                  <p className="text-[10px] text-navy-400 mt-1">
-                    Standard state format (e.g. DL-01-AB-1234, KA-05-MJ-9999)
+                  {vehicleForm.numberPlate.trim() && (() => {
+                    const detected = detectIndianJurisdiction(vehicleForm.numberPlate);
+                    return (
+                      <div className="mt-2 p-2.5 rounded-xl bg-cream-50/80 border border-cream-200/90 flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] uppercase font-bold text-navy-400">
+                            Jurisdiction:
+                          </span>
+                          <span className="font-semibold text-navy-900">
+                            {detected.name}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              detected.isBharatSeries
+                                ? "bg-blue-50 text-blue-700 border border-blue-200/70"
+                                : detected.type === "union_territory"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200/70"
+                                  : detected.type === "state"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                                    : "bg-amber-50 text-amber-700 border border-amber-200/70"
+                            }`}
+                          >
+                            {detected.typeLabel}
+                          </span>
+                        </div>
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-950 font-mono text-[11px] font-bold shrink-0 shadow-2xs">
+                          <span>{detected.displayPill}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <p className="text-[10px] text-navy-400 mt-1.5">
+                    Supports all 28 Indian States (MH, KA, DL), Union Territories, and all-India Bharat Series (BH).
                   </p>
                 </div>
 
@@ -2262,6 +2334,22 @@ export default function SettingsPage() {
                   </span>
                   ? This action cannot be reversed.
                 </p>
+
+                {deleteConfirm.type === "vehicle" && (() => {
+                  const linkedCount = invoices.filter((inv) => inv.vehicleId === deleteConfirm.id).length;
+                  if (linkedCount === 0) return null;
+                  return (
+                    <div className="mb-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-800">
+                      <p className="font-semibold flex items-center gap-1.5 mb-0.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        {linkedCount} Linked {linkedCount === 1 ? "Invoice" : "Invoices"} Affected
+                      </p>
+                      <p className="text-[11px] text-amber-700">
+                        These invoices will retain their historical registration number snapshot, but will no longer be linked to an active fleet vehicle.
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="p-4 border-t border-cream-200/80 flex items-center gap-3">
                 <button

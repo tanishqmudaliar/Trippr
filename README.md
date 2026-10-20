@@ -24,14 +24,15 @@ A modern, offline-first invoice and duty management system for transport busines
 - [Configuration](#configuration)
 - [Pages & Routes](#pages--routes)
 - [Data Types](#data-types)
-- [Invoice Calculation Logic](#invoice-calculation-logic)
-- [Multi-Day Entry System](#multi-day-entry-system)
 - [Cancelled Entries](#cancelled-entries)
 - [Branding & Customization](#branding--customization)
 - [Backup & Restore](#backup--restore)
+- [Invoice Calculation Logic](#invoice-calculation-logic)
+- [Multi-Day Entry System](#multi-day-entry-system)
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
 - [Storage & Limitations](#storage--limitations)
+- [Changelog](#changelog)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
@@ -51,8 +52,8 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 ### Dashboard
 
 - Overview stats: Total duties, invoices, revenue, extra KMs, extra hours
-- Hero metric tile for Billed Revenue with responsive layout across screen sizes
-- Recent entries list with detailed trip information
+- Dark elevated hero metric tile for Billed Revenue with responsive layout across screen sizes
+- Recent Duty Entries cards visually matched to Recent Invoices styling tokens (status pills, client tags, and clean layout)
 - Spacious multi-tier recent invoices card layout without truncated text
 - Toggle between "All Time" and "Last 30 Days"
 - Cancelled entries excluded from all calculations
@@ -92,8 +93,13 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
   - Comprehensive totals breakdown
   - Amount in words (Indian numbering: Lakhs, Crores)
   - Signature section and legal disclaimers
+- **Fleet Vehicle Linking**: First-class `vehicleId` relational model connecting invoices to active fleet vehicles with fallback to historical registration snapshots
+- **Searchable Vehicle Selector**: Modal selector with real-time Indian jurisdiction detection, vehicle model filtering, and manual override capability
+- **Dark Elevated Invoice Summary**: High-contrast dark gradient summary card matching enterprise pipeline styling
+- **Deep Tab Navigation**: Support for URL hash (`#manage`, `#create`) and search parameters for direct navigation from Statistics and Dashboard
+- **Mobile-Optimized Invoice Cards**: Non-wrapping registration numbers, streamlined mobile layout hiding redundant fleet tags, and clean settlement actions
 - **Entry Selection**: View and select specific entries for invoice with detailed information
-- Real-time preview before download
+- **Real-time preview** before download
 - Create, edit, overwrite, and delete invoices
 - Automatic JPEG to PNG conversion for compatibility
 - Duplicate invoice number prevention
@@ -101,10 +107,11 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 ### Statistics & Analytics
 
 - **Revenue Pie Chart**: Billed vs Unbilled
-- **Client Bar Chart**: Top 5 clients by revenue
+- **Client Bar Chart**: Top 5 clients by revenue with client identity disambiguation and hover tooltips
 - **8 Metric Cards**: Entries, days, invoices, KMs, hours, extras, averages
 - **Time Filters**: All time, Last 30 days, Custom range
 - **Unbilled Entries**: Grouped by client with potential revenue
+- **Direct Navigation**: One-click jumps to Manage Invoices (`#manage`) or Batch Invoice Creation (`#create`)
 
 ### Client & Vehicle Management
 
@@ -116,6 +123,8 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
   - Extra hour rate (₹)
   - Service tax percentage
 - Add, edit, delete clients
+- **Indian Vehicle Plate Detection**: Automatic identification of all 28 Indian States, 8 Union Territories, historical RTO codes, and MoRTH Bharat Series (`BH`) number plates
+- **Jurisdiction Badges**: Distinctive `IND • [State/UT/BH]` indicators rendered across Settings, Fleet Selectors, and Invoice cards
 - Track multiple vehicles (number plate, model)
 - Set default vehicle for invoices
 - Add, edit, delete vehicles
@@ -760,6 +769,32 @@ This hybrid approach enables:
 5. **Keep backup safe** - If encrypted, remember your encryption key
 6. **Download invoices** - Keep PDF copies as records
 7. **Regular browser** - Don't use incognito/private mode
+
+---
+
+## Changelog
+
+### v1.5.1 (Patch Release)
+
+- **Indian Vehicle Plate Detection Engine**:
+  - Implemented full jurisdiction parsing for all 28 Indian States, 8 Union Territories, historical RTO codes (e.g., OR, UA), and Ministry of Road Transport & Highways (MoRTH) Bharat Series (`BH`) number plates (`YY BH #### XX`).
+  - Added jurisdiction pill badges (`IND • MH`, `IND • DL`, `IND • BH`) with standardized typography across Settings, Vehicle Selector, and Invoices.
+  - Comprehensive unit test suite covering state validation, normalization, and BH plate pattern matching.
+- **Invoice & Fleet Relational Integration**:
+  - Connected invoices directly to fleet vehicles via first-class `vehicleId` foreign key relationship.
+  - Built interactive, searchable `FleetVehicleSelector` modal with real-time plate validation and manual number plate fallback.
+  - Safe data migration with dual-write fallback preserving historical plate snapshots and preventing orphaned record failures.
+- **Cross-App UI/UX Design System Unification**:
+  - Matched Recent Duty Entries cards to Recent Invoices styling tokens (`rounded-2xl`, status badges, client affiliation rows, and structured layout).
+  - Applied the dark elevated enterprise pipeline gradient (`bg-linear-to-br from-navy-950 via-navy-900 to-navy-950`) with saffron accents to both the Dashboard Billed Revenue hero card and the Create Invoice Summary breakdown card.
+  - Fixed mobile plate squeezing in Manage Invoices with no-wrap containers and responsive fleet label concealment.
+  - Simplified Manage Invoices by pruning obsolete filter toggles and redundant badges.
+- **Deep Tab Navigation & Routing**:
+  - Added URL hash (`#manage`, `#create`) and search param synchronization to `/invoice` for seamless tab switching.
+  - Updated Statistics and Dashboard navigation links to route directly to either the Manage Invoices archive or Create Invoice generator.
+- **Statistics & Chart Precision**:
+  - Disambiguated duplicate/affiliate client names in Recharts Top Clients by Billed Revenue chart using unique IDs.
+  - Added collision-resistant label formatting and high-precision custom hover tooltips showing exact billing amounts and settled invoice counts.
 
 ---
 

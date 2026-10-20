@@ -174,19 +174,36 @@ export default function StatisticsPage() {
 
   // Client revenue data for bar chart
   const clientRevenueData = useMemo(() => {
-    const revenueByClient = new Map<string, number>();
+    const revenueByClient = new Map<string, { revenue: number; invoiceCount: number }>();
 
     filteredInvoices.forEach((inv) => {
-      const current = revenueByClient.get(inv.clientId) || 0;
-      revenueByClient.set(inv.clientId, current + inv.roundedTotal);
+      const current = revenueByClient.get(inv.clientId) || { revenue: 0, invoiceCount: 0 };
+      revenueByClient.set(inv.clientId, {
+        revenue: current.revenue + inv.roundedTotal,
+        invoiceCount: current.invoiceCount + 1,
+      });
     });
 
     return Array.from(revenueByClient.entries())
-      .map(([clientId, revenue]) => {
+      .map(([clientId, info]) => {
         const client = clients.find((c) => c.id === clientId);
+        const fullName = client?.name || "Unknown Client";
+        // Create an informative, distinct short label for the X-axis
+        let shortLabel = fullName;
+        if (shortLabel.length > 20) {
+          if (/outstation/i.test(shortLabel)) {
+            const base = shortLabel.replace(/[\s-]+outstation/i, "").trim();
+            shortLabel = `${base.slice(0, 11)}… (Out)`;
+          } else {
+            shortLabel = `${shortLabel.slice(0, 17)}…`;
+          }
+        }
         return {
-          name: client?.name?.substring(0, 14) || "Unknown",
-          revenue,
+          clientId,
+          fullName,
+          shortLabel,
+          revenue: info.revenue,
+          invoiceCount: info.invoiceCount,
         };
       })
       .sort((a, b) => b.revenue - a.revenue)
@@ -377,7 +394,7 @@ export default function StatisticsPage() {
 
           <div className="pt-3 border-t border-cream-200 flex items-center justify-between text-xs text-navy-500">
             <span>Avg Value: {formatCurrency(stats.avgInvoiceValue)}</span>
-            <Link href="/invoice" className="text-emerald-700 font-semibold hover:underline">
+            <Link href="/invoice#manage" className="text-emerald-700 font-semibold hover:underline">
               View invoices →
             </Link>
           </div>
@@ -411,7 +428,7 @@ export default function StatisticsPage() {
 
           <div className="pt-3 border-t border-cream-200 flex items-center justify-between text-xs">
             <span className="text-navy-500">Ready to bill</span>
-            <Link href="/invoice" className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline">
+            <Link href="/invoice#create" className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline">
               Generate invoices now →
             </Link>
           </div>
@@ -547,35 +564,56 @@ export default function StatisticsPage() {
               <span className="text-xs text-navy-400 font-medium">Ranked by turnover</span>
             </div>
 
-            <div className="h-56">
+            <div className="h-64">
               {clientRevenueData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={clientRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                  <BarChart
+                    data={clientRevenueData}
+                    margin={{ top: 10, right: 10, left: -10, bottom: 40 }}
+                  >
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="#f1ede6"
                       vertical={false}
                     />
                     <XAxis
-                      dataKey="name"
+                      dataKey="clientId"
+                      tickFormatter={(id) => {
+                        const item = clientRevenueData.find((d) => d.clientId === id);
+                        return item ? item.shortLabel : id;
+                      }}
                       tick={{ fontSize: 11, fill: "#627d98" }}
                       interval={0}
-                      angle={-15}
+                      angle={-20}
                       textAnchor="end"
+                      height={45}
                     />
                     <YAxis
                       tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                       tick={{ fontSize: 11, fill: "#627d98" }}
                     />
                     <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
-                      contentStyle={{
-                        backgroundColor: "#ffffff",
-                        borderRadius: "12px",
-                        border: "1px solid #f5e9d4",
-                        boxShadow: "0 10px 25px -4px rgba(16, 42, 67, 0.12)",
-                        fontSize: "12px",
-                        fontWeight: "600",
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload as (typeof clientRevenueData)[number];
+                          return (
+                            <div className="bg-white rounded-xl border border-cream-200/90 shadow-elevated p-3 text-xs space-y-1">
+                              <p className="font-bold text-navy-950 text-sm">
+                                {data.fullName}
+                              </p>
+                              <div className="flex items-center gap-1.5 pt-1 text-navy-700">
+                                <span className="text-navy-500 font-medium">Billed Revenue:</span>
+                                <span className="font-mono font-bold text-saffron-600 text-sm">
+                                  {formatCurrency(data.revenue)}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-navy-400 font-medium">
+                                {data.invoiceCount} {data.invoiceCount === 1 ? "invoice" : "invoices"} settled
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
                       }}
                     />
                     <Bar dataKey="revenue" fill="#ea580c" radius={[6, 6, 0, 0]} />
@@ -612,7 +650,7 @@ export default function StatisticsPage() {
               </p>
             </div>
             <Link
-              href="/invoice"
+              href="/invoice#create"
               className="btn-primary text-xs py-2 px-4 shadow-sm"
             >
               <span>Batch Generate Invoices</span>
