@@ -27,6 +27,8 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
+  TrendingUp,
 } from "lucide-react";
 import {
   formatDate,
@@ -1479,37 +1481,60 @@ export default function EntriesPage() {
         </div>
 
         {/* Live Filter & Summary Metrics Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="card p-3.5 sm:p-4 border border-cream-200/90 shadow-subtle hover:border-saffron-300 transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-saffron-50 text-saffron-600 border border-saffron-200/70 flex items-center justify-center">
+                <ClipboardList className="w-4 h-4" />
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 block mb-0.5 truncate">
               Filtered Trips
             </span>
-            <span className="font-mono text-lg font-bold text-navy-950">
+            <span className="font-mono text-xl sm:text-2xl font-bold text-navy-950">
               {filteredEntries.length}
             </span>
           </div>
-          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+
+          <div className="card p-3.5 sm:p-4 border border-cream-200/90 shadow-subtle hover:border-saffron-300 transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200/70 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 block mb-0.5 truncate">
               Total Distance
             </span>
-            <span className="font-mono text-lg font-bold text-saffron-700">
-              {filteredStats.kms.toLocaleString()} km
+            <span className="font-mono text-xl sm:text-2xl font-bold text-saffron-700">
+              {filteredStats.kms.toLocaleString()} <span className="text-xs font-semibold text-navy-500">km</span>
             </span>
           </div>
-          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+
+          <div className="card p-3.5 sm:p-4 border border-cream-200/90 shadow-subtle hover:border-saffron-300 transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 border border-purple-200/70 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 block mb-0.5 truncate">
               Total Duration
             </span>
-            <span className="font-mono text-lg font-bold text-navy-950">
+            <span className="font-mono text-xl sm:text-2xl font-bold text-navy-950">
               {formatDuration(filteredStats.hours)}
             </span>
           </div>
-          <div className="p-3 bg-white rounded-xl border border-cream-200/90 shadow-subtle">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-navy-400 block mb-0.5">
+
+          <div className="card p-3.5 sm:p-4 border border-cream-200/90 shadow-subtle hover:border-saffron-300 transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/70 flex items-center justify-center">
+                <IndianRupee className="w-4 h-4" />
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 block mb-0.5 truncate">
               Unbilled Pipeline
             </span>
-            <span className="font-mono text-lg font-bold text-emerald-700">
-              {filteredStats.unbilled} trips
+            <span className="font-mono text-xl sm:text-2xl font-bold text-emerald-700">
+              {filteredStats.unbilled} <span className="text-xs font-semibold text-navy-500">trips</span>
             </span>
           </div>
         </div>
@@ -1570,31 +1595,31 @@ export default function EntriesPage() {
         {/* Entries List - Card-based design for better mobile/desktop experience */}
         <div className="space-y-4">
           {filteredEntries.length === 0 ? (
-            <div className="card text-center py-12 lg:py-16">
-              <div className="w-16 lg:w-20 h-16 lg:h-20 mx-auto mb-4 lg:mb-6 rounded-full bg-cream-100 flex items-center justify-center">
-                <Calendar className="w-8 lg:w-10 h-8 lg:h-10 text-cream-400" />
+            <div className="text-center py-12 px-4 rounded-xl border border-dashed border-cream-300 bg-cream-50/40 my-2">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-saffron-100 flex items-center justify-center text-saffron-600 shadow-xs">
+                <Calendar className="w-6 h-6" />
               </div>
-              <h3 className="font-display text-lg lg:text-xl font-semibold text-navy-800 mb-2">
+              <h3 className="font-display text-base font-bold text-navy-900 mb-1">
                 {searchQuery
-                  ? "No matching entries"
+                  ? "No matching entries found"
                   : filterClientId
                     ? "No entries for this client"
-                    : "No entries yet"}
+                    : "No duty entries recorded yet"}
               </h3>
-              <p className="text-navy-500 mb-4 lg:mb-6">
+              <p className="text-xs text-navy-500 mb-4 max-w-xs mx-auto">
                 {searchQuery
-                  ? "Try a different search term"
+                  ? "Try a different search query or clear client filters."
                   : filterClientId
-                    ? "Try a different filter or add new entries"
-                    : "Start by adding your first duty entry"}
+                    ? "Select another client or record a trip for this client."
+                    : "Start logging your vehicle odometer kilometers and trip hours to track business performance."}
               </p>
               {!searchQuery && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="btn-primary"
+                  className="btn-primary text-xs py-2 px-4 shadow-sm inline-flex items-center gap-1.5"
                 >
-                  <Plus className="w-5 h-5" />
-                  Add Entry
+                  <Plus className="w-4 h-4" />
+                  <span>Log First Duty</span>
                 </button>
               )}
             </div>

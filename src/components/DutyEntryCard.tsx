@@ -122,7 +122,7 @@ export default function DutyEntryCard({
       } ${
         isSelected
           ? "border-saffron-500 bg-saffron-50/70 shadow-soft"
-          : "border-cream-200/90 bg-white hover:border-cream-300 shadow-subtle hover:shadow-soft"
+          : "border-cream-200/90 bg-white hover:border-saffron-300 shadow-2xs hover:shadow-soft"
       } ${variant === "compact" ? "p-3.5" : "p-5"}`}
     >
       {/* Header Section */}
@@ -426,90 +426,96 @@ export function DutyEntryListItem({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: animationDelay, duration: 0.25, ease: "easeOut" }}
-      className="p-3.5 rounded-xl bg-cream-50/70 hover:bg-saffron-50/70 border border-cream-200/80 hover:border-saffron-200/90 transition-all group"
+      className="p-4 sm:p-5 rounded-2xl bg-cream-50/70 hover:bg-white border border-cream-200/90 hover:border-saffron-300 shadow-2xs hover:shadow-soft transition-all space-y-3.5 group"
     >
-      {/* Row 1: Date, Duty ID, Client */}
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-lg bg-white border border-cream-200 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-            <Calendar className="w-3.5 h-3.5 text-saffron-600" />
+      {/* Top Bar: Duty ID, Date, Duration & Total Running */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+            <Calendar className="w-5 h-5 text-saffron-600 group-hover:text-saffron-700 transition-colors" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {isMultiDay ? (
-                <div className="flex items-center gap-1">
-                  <span className="badge badge-saffron text-[10px]">
-                    {entryDays}d
-                  </span>
-                  <span className="font-semibold text-navy-950 text-sm">
-                    {formatDate(entry.date)} → {formatDate(entry.endDate!)}
-                  </span>
-                </div>
-              ) : (
-                <span className="font-semibold text-navy-950 text-sm">
-                  {formatDate(entry.date)}
+              <h3 className="font-display text-base font-bold text-navy-950">
+                #{entry.dutyId || "Duty"}
+              </h3>
+              <span className="text-xs text-navy-400 font-medium">
+                ({isMultiDay ? `${formatDate(entry.date)} → ${formatDate(entry.endDate!)}` : formatDate(entry.date)})
+              </span>
+              {isMultiDay && (
+                <span className="badge badge-saffron text-[10px] py-0.5 px-2 font-semibold">
+                  {entryDays} days
+                </span>
+              )}
+              {isCancelled && (
+                <span className="badge badge-amber text-[10px] py-0.5 px-2 font-semibold flex items-center gap-1">
+                  <Ban className="w-3 h-3" />
+                  Cancelled
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-navy-500 mt-0.5">
-              <span className="font-mono">#{entry.dutyId}</span>
-              <span>•</span>
-              <span className="truncate font-medium text-navy-700">{clientName}</span>
+
+            <div className="flex items-center gap-2 text-xs text-navy-600 mt-1">
+              <Clock className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+              <span className="font-mono text-xs text-navy-700 font-medium">
+                {timeLabel || "Standard Duty"}
+              </span>
             </div>
           </div>
         </div>
 
-        {isCancelled && (
-          <span className="badge badge-amber text-[10px] shrink-0">
-            <Ban className="w-3 h-3" />
-            Cancelled
+        {/* Total Running Pill */}
+        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0">
+          <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+            Total Running
           </span>
-        )}
+          <span className="font-mono text-base sm:text-lg font-bold text-navy-950 leading-tight">
+            {entry.totalKms} km
+          </span>
+        </div>
       </div>
 
-      {/* Row 2: Metrics */}
+      {/* Row 2: Billed Client */}
+      <div className="pt-2 border-t border-cream-200/60 flex items-center gap-2">
+        <Building2 className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+        <span className="text-xs font-medium text-navy-700 truncate">
+          {clientName}
+        </span>
+      </div>
+
+      {/* Row 3: Operational Metrics & Badges */}
       {!isCancelled && (
-        <div className="flex items-center gap-3 ml-11 flex-wrap text-xs text-navy-700">
-          <div className="flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-navy-400" />
-            <span className="font-mono font-bold text-navy-900">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
+            <MapPin className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+            <span>
               {entry.startingKms.toLocaleString()} → {entry.closingKms.toLocaleString()}
             </span>
-            <span className="text-navy-500 font-mono font-medium">({entry.totalKms} km)</span>
           </div>
 
-          {timeLabel && (
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-navy-400" />
-              <span className="font-mono text-navy-600">{timeLabel}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Row 3: Badges */}
-      {!isCancelled && (
-        <div className="flex items-center gap-1.5 ml-11 mt-2 flex-wrap">
           {entry.extraKms > 0 && (
-            <span className="badge badge-saffron text-[10px]">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
               +{entry.extraKms} km
             </span>
           )}
+
           {entry.extraTime > 0 && (
-            <span className="badge badge-saffron text-[10px]">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
               +{formatDuration(entry.extraTime)}
             </span>
           )}
+
           {entry.tollParking > 0 && (
-            <span className="badge badge-navy text-[10px]">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
               Toll: {formatCurrency(entry.tollParking)}
             </span>
           )}
+
           {entry.additionalCharges?.map((charge, idx) => (
-            <span key={idx} className="badge badge-cream text-[10px]">
+            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cream-100 border border-cream-200/80 text-navy-700 text-xs font-medium shadow-2xs">
               {charge.label}: {formatCurrency(charge.amount)}
             </span>
           ))}
@@ -518,9 +524,9 @@ export function DutyEntryListItem({
 
       {/* Remark */}
       {entry.remark && (
-        <div className="ml-11 mt-1.5 text-[11px] text-navy-400 italic truncate">
-          {entry.remark}
-        </div>
+        <p className="text-[11px] text-navy-400 italic truncate pt-1">
+          &ldquo;{entry.remark}&rdquo;
+        </p>
       )}
     </motion.div>
   );
