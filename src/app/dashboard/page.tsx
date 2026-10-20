@@ -27,8 +27,10 @@ import {
   formatDate,
   formatDuration,
   getEntryDayCount,
+  getInvoiceVehicleNumber,
 } from "@/lib/types";
 import { DutyEntryListItem } from "@/components/DutyEntryCard";
+import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 const container = {
   hidden: { opacity: 0 },
@@ -204,7 +206,8 @@ export default function Dashboard() {
           label="Billed Revenue"
           value={formatCurrency(totalRevenue).replace("₹", "").trim()}
           prefix="₹"
-          color="green"
+          color="dark"
+          isDark
           helperText="Settled & invoiced"
           className="col-span-2 sm:col-span-1"
           valueClassName="text-2xl sm:text-xl lg:text-2xl"
@@ -328,7 +331,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <Link
-                href="/invoice"
+                href="/invoice#manage"
                 className="text-xs font-semibold text-saffron-600 hover:text-saffron-700 flex items-center gap-1 group transition-colors"
               >
                 <span>View all</span>
@@ -375,6 +378,14 @@ export default function Dashboard() {
                     0,
                   );
                   const clientName = getClientName(invoice.clientId);
+                  const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles);
+                  const isLinked = Boolean(
+                    invoice.vehicleId && vehicles.some((v) => v.id === invoice.vehicleId),
+                  );
+                  const linkedVehicle = invoice.vehicleId
+                    ? vehicles.find((v) => v.id === invoice.vehicleId)
+                    : undefined;
+                  const plateJurisdiction = detectIndianJurisdiction(resolvedPlate);
 
                   return (
                     <motion.div
@@ -401,9 +412,25 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-navy-600 mt-1">
                               <Car className="w-3.5 h-3.5 text-navy-400 shrink-0" />
-                              <span className="font-mono font-medium text-navy-800">
-                                {invoice.vehicleNumberForInvoice || "Fleet vehicle"}
-                              </span>
+                              {isLinked ? (
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
+                                  <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
+                                    {plateJurisdiction.displayPill}
+                                  </span>
+                                  <span className="font-mono text-xs font-bold text-navy-950 tracking-wider whitespace-nowrap">
+                                    {resolvedPlate}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="font-mono font-medium text-navy-800">
+                                  {resolvedPlate || "Fleet vehicle"}
+                                </span>
+                              )}
+                              {linkedVehicle?.model && (
+                                <span className="text-[11px] text-navy-400 truncate max-w-28 hidden sm:inline" title={linkedVehicle.model}>
+                                  • {linkedVehicle.model}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -471,7 +498,7 @@ export default function Dashboard() {
                 Showing latest {recentInvoices.length} of {invoices.length} recorded invoices
               </span>
               <Link
-                href="/invoice"
+                href="/invoice#manage"
                 className="font-semibold text-saffron-600 hover:text-saffron-700 hover:underline flex items-center gap-1 text-[11px] sm:text-xs"
               >
                 <span>Open Invoice Center</span>
@@ -526,16 +553,18 @@ function StatCard({
   helperText,
   className = "",
   valueClassName,
+  isDark = false,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   prefix?: string;
   suffix?: string;
-  color: "saffron" | "navy" | "green" | "blue" | "purple";
+  color: "saffron" | "navy" | "green" | "blue" | "purple" | "dark";
   helperText?: string;
   className?: string;
   valueClassName?: string;
+  isDark?: boolean;
 }) {
   const colorMap = {
     saffron: {
@@ -558,9 +587,64 @@ function StatCard({
       bg: "bg-purple-50 text-purple-600 border-purple-200/70",
       accent: "text-purple-800",
     },
+    dark: {
+      bg: "bg-white/10 text-saffron-400 border-white/15",
+      accent: "text-saffron-400",
+    },
   };
 
   const currentTheme = colorMap[color];
+
+  if (isDark || color === "dark") {
+    return (
+      <motion.div
+        whileHover={{ y: -2 }}
+        className={`rounded-2xl p-3.5 sm:p-4 lg:p-5 flex flex-col justify-between bg-linear-to-br from-navy-950 via-navy-900 to-navy-950 text-white shadow-elevated border border-navy-800 relative overflow-hidden transition-all hover:border-navy-700 ${className}`}
+      >
+        <div>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-saffron-400 shadow-xs">
+              <Icon className="w-4 h-4" />
+            </div>
+            <span className="badge bg-white/10 text-white border-white/20 text-[10px] font-semibold">
+              Gross Billed
+            </span>
+          </div>
+          <p className="text-navy-300 text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-1 truncate">
+            {label}
+          </p>
+          <p
+            className={`font-mono ${valueClassName || "text-base sm:text-xl lg:text-2xl"} font-bold text-white tracking-tight leading-none mb-1 truncate`}
+            title={`${prefix || ""}${value}${suffix || ""}`}
+          >
+            {prefix && (
+              <span
+                className={`${
+                  valueClassName
+                    ? "text-lg sm:text-base lg:text-lg"
+                    : "text-sm sm:text-base lg:text-lg"
+                } mr-0.5 font-semibold text-saffron-400`}
+              >
+                {prefix}
+              </span>
+            )}
+            <span>{value}</span>
+            {suffix && (
+              <span className="text-[11px] sm:text-xs font-semibold text-navy-300 ml-1">
+                {suffix}
+              </span>
+            )}
+          </p>
+        </div>
+
+        {helperText && (
+          <p className="text-[10px] sm:text-[11px] text-navy-400 font-medium pt-1.5 sm:pt-2 border-t border-navy-800/80 mt-1.5 sm:mt-2 truncate">
+            {helperText}
+          </p>
+        )}
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
