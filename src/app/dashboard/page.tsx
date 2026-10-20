@@ -26,10 +26,11 @@ import {
   formatCurrency,
   formatDate,
   formatDuration,
+  formatDurationWithUnits,
   getEntryDayCount,
   getInvoiceVehicleNumber,
 } from "@/lib/types";
-import { DutyEntryListItem } from "@/components/DutyEntryCard";
+import DutyEntryCard from "@/components/DutyEntryCard";
 import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 const container = {
@@ -139,19 +140,19 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 gap-3 w-full sm:w-auto">
           <Link
             href="/entries"
-            className="btn-primary text-xs sm:text-sm py-2 px-4 shadow-sm"
+            className="btn-primary text-xs sm:text-sm py-2 px-4 shadow-sm flex items-center justify-center gap-2 flex-1 text-center"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-4 h-4 shrink-0" />
             <span>Log Duty</span>
           </Link>
           <Link
             href="/invoice"
-            className="btn-secondary text-xs sm:text-sm py-2 px-4 shadow-subtle"
+            className="btn-secondary text-xs sm:text-sm py-2 px-4 shadow-subtle flex items-center justify-center gap-2 flex-1 text-center"
           >
-            <FileText className="w-4 h-4 text-saffron-600" />
+            <FileText className="w-4 h-4 text-saffron-600 shrink-0" />
             <span>Create Invoice</span>
           </Link>
         </div>
@@ -171,27 +172,27 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Segmented Pill Selector */}
-        <div className="inline-flex p-1 rounded-xl bg-cream-100/90 border border-cream-200/60">
+        {/* Tab Buttons matching /invoice */}
+        <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-white border border-cream-200/90 shadow-subtle">
           <button
             onClick={() => setViewMode("global")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
               viewMode === "global"
-                ? "bg-white text-saffron-700 shadow-xs"
-                : "text-navy-600 hover:text-navy-900"
+                ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
+                : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
             }`}
           >
-            All Time
+            <span>All Time</span>
           </button>
           <button
             onClick={() => setViewMode("last30")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all ${
               viewMode === "last30"
-                ? "bg-white text-saffron-700 shadow-xs"
-                : "text-navy-600 hover:text-navy-900"
+                ? "bg-linear-to-r from-saffron-500 to-saffron-600 text-white shadow-sm"
+                : "text-navy-600 hover:text-navy-950 hover:bg-cream-50"
             }`}
           >
-            Last 30 Days
+            <span>Last 30 Days</span>
           </button>
         </div>
       </motion.div>
@@ -291,11 +292,15 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {recentEntries.map((entry, index) => (
-                  <DutyEntryListItem
+                  <DutyEntryCard
                     key={entry.id}
                     entry={entry}
                     clientName={getClientName(entry.clientId)}
+                    showClient={true}
+                    showActions={false}
+                    showCheckbox={false}
                     animationDelay={index * 0.04}
+                    variant="default"
                     timeFormat={userProfile?.timeFormat || "24hr"}
                   />
                 ))}
@@ -411,8 +416,7 @@ export default function Dashboard() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-navy-600 mt-1">
-                              <Car className="w-3.5 h-3.5 text-navy-400 shrink-0" />
-                              {isLinked ? (
+                              {resolvedPlate ? (
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
                                   <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
                                     {plateJurisdiction.displayPill}
@@ -423,7 +427,7 @@ export default function Dashboard() {
                                 </div>
                               ) : (
                                 <span className="font-mono font-medium text-navy-800">
-                                  {resolvedPlate || "Fleet vehicle"}
+                                  Fleet vehicle
                                 </span>
                               )}
                               {linkedVehicle?.model && (
@@ -436,11 +440,11 @@ export default function Dashboard() {
                         </div>
 
                         {/* Net Billed Total Pill */}
-                        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between">
+                        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0 sm:text-right sm:pl-3">
                           <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
                             Net Billed Total
                           </span>
-                          <span className="font-mono text-base sm:text-lg font-bold text-saffron-700 leading-tight">
+                          <span className="font-mono text-sm sm:text-base font-bold text-saffron-700 leading-tight whitespace-nowrap mt-0.5 sm:mt-1.5 block">
                             {formatCurrency(invoice.roundedTotal)}
                           </span>
                         </div>
@@ -475,13 +479,13 @@ export default function Dashboard() {
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
                           <span>{totalKms} km</span>
                           <span className="text-navy-300">•</span>
-                          <span>{formatDuration(totalHours)}</span>
+                          <span>{formatDurationWithUnits(totalHours)}</span>
                         </div>
 
                         {totalExtraKms > 0 && (
                           <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
                             <TrendingUp className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
-                            <span>+{totalExtraKms} extra km</span>
+                            <span>+{totalExtraKms} km</span>
                           </div>
                         )}
                       </div>
