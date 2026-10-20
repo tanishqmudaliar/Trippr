@@ -22,6 +22,7 @@ import {
   formatDate,
   formatCurrency,
   formatDuration,
+  formatDurationWithUnits,
   decimalToTime,
   getEntryDayCount,
 } from "@/lib/types";
@@ -227,9 +228,42 @@ export default function DutyEntryCard({
       {/* Content Section */}
       {!isCancelled && (
         <>
-          {/* Meter Readings & Timing Grid */}
+          {/* Mobile Squeezed Aligned View */}
           <div
-            className={`grid grid-cols-2 gap-2.5 mb-3 ${
+            className={`sm:hidden bg-cream-50/90 rounded-xl p-2.5 border border-cream-200/80 mb-2.5 space-y-1.5 text-xs ${
+              showCheckbox ? "ml-8" : ""
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 font-mono text-xs">
+                <MapPin className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                <span className="text-navy-400 font-medium text-[11px]">KM:</span>
+                <span className="font-bold text-navy-950">{entry.startingKms.toLocaleString()} km</span>
+                <span className="text-navy-300">→</span>
+                <span className="font-bold text-navy-950">{entry.closingKms.toLocaleString()} km</span>
+              </div>
+            </div>
+
+            {timeDisplay && (
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-cream-200/60 font-mono text-xs text-navy-800">
+                <div className="flex items-center gap-1.5 truncate">
+                  <Clock className="w-3.5 h-3.5 text-navy-400 shrink-0" />
+                  <span className="text-navy-400 font-medium text-[11px]">Time:</span>
+                  <span className="font-semibold text-navy-950 truncate">
+                    {timeDisplay.type === "totalHours"
+                      ? `${timeDisplay.totalHours} hrs`
+                      : timeDisplay.type === "perDay"
+                      ? `${timeDisplay.days.length} days scheduled`
+                      : `${timeDisplay.timeIn} → ${timeDisplay.timeOut}`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Meter Readings & Timing Grid */}
+          <div
+            className={`hidden sm:grid sm:grid-cols-2 gap-2.5 mb-3 ${
               showCheckbox ? "ml-8" : ""
             }`}
           >
@@ -240,7 +274,7 @@ export default function DutyEntryCard({
                 Start KM
               </div>
               <div className="font-mono font-bold text-navy-900 text-sm">
-                {entry.startingKms.toLocaleString()}
+                {entry.startingKms.toLocaleString()} km
               </div>
             </div>
 
@@ -251,7 +285,7 @@ export default function DutyEntryCard({
                 Close KM
               </div>
               <div className="font-mono font-bold text-navy-900 text-sm">
-                {entry.closingKms.toLocaleString()}
+                {entry.closingKms.toLocaleString()} km
               </div>
             </div>
 
@@ -265,7 +299,7 @@ export default function DutyEntryCard({
                       Total Hours Logged
                     </div>
                     <div className="font-mono font-bold text-navy-900 text-sm">
-                      {timeDisplay.totalHours}
+                      {timeDisplay.totalHours} hrs
                     </div>
                   </div>
                 ) : timeDisplay.type === "perDay" ? (
@@ -324,7 +358,7 @@ export default function DutyEntryCard({
             </span>
             <span className="text-navy-300">•</span>
             <span className="font-mono font-bold text-navy-950">
-              {formatDuration(entry.totalTime)}
+              {formatDurationWithUnits(entry.totalTime)}
             </span>
           </div>
 
@@ -339,13 +373,13 @@ export default function DutyEntryCard({
               }`}
             >
               {entry.extraKms > 0 && (
-                <span className="badge badge-saffron text-[11px]">
-                  +{entry.extraKms} extra km
+                <span className="badge badge-saffron text-[11px] font-semibold">
+                  +{entry.extraKms} km
                 </span>
               )}
               {entry.extraTime > 0 && (
-                <span className="badge badge-saffron text-[11px]">
-                  +{formatDuration(entry.extraTime)} extra
+                <span className="badge badge-saffron text-[11px] font-semibold">
+                  +{formatDurationWithUnits(entry.extraTime)}
                 </span>
               )}
               {entry.tollParking > 0 && (
@@ -354,7 +388,7 @@ export default function DutyEntryCard({
                 </span>
               )}
               {entry.additionalCharges?.map((charge, idx) => (
-                <span key={idx} className="badge badge-cream text-[11px]">
+                <span key={idx} className="badge badge-navy text-[11px]">
                   {charge.label}: {formatCurrency(charge.amount)}
                 </span>
               ))}
@@ -431,7 +465,7 @@ export function DutyEntryListItem({
       transition={{ delay: animationDelay, duration: 0.25, ease: "easeOut" }}
       className="p-4 sm:p-5 rounded-2xl bg-cream-50/70 hover:bg-white border border-cream-200/90 hover:border-saffron-300 shadow-2xs hover:shadow-soft transition-all space-y-3.5 group"
     >
-      {/* Top Bar: Duty ID, Date, Duration & Total Running */}
+      {/* Top Bar: Duty ID, Date & Total Running Summary */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
@@ -457,24 +491,29 @@ export function DutyEntryListItem({
                 </span>
               )}
             </div>
-
-            <div className="flex items-center gap-2 text-xs text-navy-600 mt-1">
-              <Clock className="w-3.5 h-3.5 text-navy-400 shrink-0" />
-              <span className="font-mono text-xs text-navy-700 font-medium">
-                {timeLabel || "Standard Duty"}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Total Running Pill */}
-        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0">
+        {/* Total Running Column with Time and Odometer Reading below */}
+        <div className="bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-start sm:items-end justify-between shrink-0 space-y-0.5">
           <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
             Total Running
           </span>
           <span className="font-mono text-base sm:text-lg font-bold text-navy-950 leading-tight">
             {entry.totalKms} km
           </span>
+          {!isCancelled && (
+            <span className="font-mono text-xs text-navy-600 font-medium flex items-center gap-1">
+              <Clock className="w-3 h-3 text-navy-400 inline" />
+              {formatDurationWithUnits(entry.totalTime)}
+            </span>
+          )}
+          {!isCancelled && (
+            <span className="font-mono text-[11px] text-navy-400 font-medium flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-navy-400 inline" />
+              {entry.startingKms.toLocaleString()} km → {entry.closingKms.toLocaleString()} km
+            </span>
+          )}
         </div>
       </div>
 
@@ -486,16 +525,9 @@ export function DutyEntryListItem({
         </span>
       </div>
 
-      {/* Row 3: Operational Metrics & Badges */}
-      {!isCancelled && (
+      {/* Row 3: Badges Only */}
+      {!isCancelled && (entry.extraKms > 0 || entry.extraTime > 0 || entry.tollParking > 0 || (entry.additionalCharges && entry.additionalCharges.length > 0)) && (
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
-            <MapPin className="w-3.5 h-3.5 text-navy-400 shrink-0" />
-            <span>
-              {entry.startingKms.toLocaleString()} → {entry.closingKms.toLocaleString()}
-            </span>
-          </div>
-
           {entry.extraKms > 0 && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
               +{entry.extraKms} km
@@ -504,7 +536,7 @@ export function DutyEntryListItem({
 
           {entry.extraTime > 0 && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
-              +{formatDuration(entry.extraTime)}
+              +{formatDurationWithUnits(entry.extraTime)}
             </span>
           )}
 
@@ -515,7 +547,7 @@ export function DutyEntryListItem({
           )}
 
           {entry.additionalCharges?.map((charge, idx) => (
-            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cream-100 border border-cream-200/80 text-navy-700 text-xs font-medium shadow-2xs">
+            <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
               {charge.label}: {formatCurrency(charge.amount)}
             </span>
           ))}

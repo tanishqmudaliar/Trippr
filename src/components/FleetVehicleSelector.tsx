@@ -167,16 +167,11 @@ export function FleetVehicleSelector({
                         {selectedVehicle.numberPlate}
                       </span>
                     </div>
-                    <div className="min-w-0 truncate">
-                      <span className="text-xs font-medium text-navy-800">
-                        {selectedVehicle.model || "Commercial Vehicle"}
+                    {selectedVehicle.isDefault && (
+                      <span className="text-[10px] font-semibold text-saffron-700 bg-saffron-50 px-1.5 py-0.5 rounded border border-saffron-200 shrink-0">
+                        ★ Default
                       </span>
-                      {selectedVehicle.isDefault && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-saffron-700 bg-saffron-50 px-1.5 py-0.5 rounded border border-saffron-200">
-                          ★ Default
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </>
                 );
               })() : isUnlinkedLegacy ? (

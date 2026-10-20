@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-21
+
+### Added
+
+- **Searchable Client Selector Modal**: Introduced `ClientSelector` modal component matching the design of `FleetVehicleSelector`, featuring instant search, client rate metadata badges (Base Fare, Extra KM, Extra Hr), quick client creation shortcut, and keyboard navigation.
+- **Explicit Unit Formatting Utility**: Added `formatDurationWithUnits(decimalHours)` and `formatExtraTimeBadge(decimalHours)` to render explicit, readable duration badges (`hrs`, `mins`) across cards, badges, and metrics.
+- **Indian Plate Chip on Recent Invoices**: Integrated Indian jurisdiction detection and styled registration plate chips (`IND • MH`, `IND • BH`) onto Recent Invoices cards on the dashboard.
+
+### Changed
+
+- **Unified Card Components**: Standardized Recent Duty Entries on the dashboard to use the exact `DutyEntryCard` component from `/entries`, displaying client name clearly, reorganized metric badges (`+21 km`, `+5 hrs 30 mins`, `Toll: ₹650`, and custom additional charges), and aligned time below total running and distance below time.
+- **Equal-Width Action Buttons on Mobile**:
+  - In `/dashboard`: Styled "All Time" and "Last 30 Days" reporting window toggle buttons to match `/invoice` segmented tabs, and made "Log Duty" and "Create Invoice" take equal 50/50 width.
+  - In `/entries`: Configured "Import Log", "Export", and "Add Entry" buttons to render as an equal 3-column grid on mobile viewports.
+- **Streamlined Fleet Vehicle Selector**: Removed vehicle model/car name from the `FleetVehicleSelector` trigger button, presenting only the clean number plate chip.
+- **Streamlined Manage Invoices Cards**: Removed car icon and vehicle model from invoice cards in `/invoice` (Manage Invoices).
+
+### Fixed
+
+- **Metric Value Truncation Bug**: Resolved `1552 hrs 10 mi..` truncation across `/entries` "Total Duration" summary card and `/statistics` "Extra Waiting" `MetricCard` by removing `truncate`, applying `break-words leading-tight`, and adding responsive font sizing and native hover tooltips.
+- **Net Billed Total Overlap & Spacing in Manage Invoices**: Reduced Net Billed Total font size to `text-sm sm:text-base font-bold`, added top spacing (`mt-0.5 sm:mt-1.5 block`), and enforced safety padding and separation preventing collisions with the vehicle registration plate chip on narrow viewports.
+
 ## [1.5.1] - 2026-10-21
 
 ### Added

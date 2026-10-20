@@ -52,15 +52,16 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 
 - Overview stats: Total duties, invoices, revenue, extra KMs, extra hours
 - Dark elevated hero metric tile for Billed Revenue with responsive layout across screen sizes
-- Recent Duty Entries cards visually matched to Recent Invoices styling tokens (status pills, client tags, and clean layout)
-- Spacious multi-tier recent invoices card layout without truncated text
-- Toggle between "All Time" and "Last 30 Days"
+- Recent Duty Entries cards unified 100% with `DutyEntryCard`, displaying client name, explicit metric badges (`+21 km`, `+5 hrs 30 mins`, `Toll: ₹650`), aligned running time and distance readings
+- Recent Invoices cards styled with Indian vehicle registration plate chips (`IND • MH`, `IND • BH`)
+- Toggle between "All Time" and "Last 30 Days" (segmented tabs design)
 - Cancelled entries excluded from all calculations
 - Responsive mobile & desktop card grid
 
 ### Duty Entry Management
 
 - **Manual Entry**: Create single-day or multi-day entries
+- **Searchable Client Selector**: Modal selector with instant search, client rate metadata badges, and quick-add shortcut
 - **Multi-Day Modes**:
   - **Same Daily**: Same schedule repeated each day
   - **Total Hours**: Manual total hours entry
@@ -73,6 +74,8 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 - Filter entries by client
 - Sort entries by date (newest first)
 - **Entry Details View**: Expanded view showing times, cancelled status, and remarks
+- **Explicit Unit Formatting**: Every duration and distance metric renders readable units (`hrs`, `mins`, `km`) with wrap protection to prevent truncation
+- **Equal-Width Action Buttons**: "Import Log", "Export", and "Add Entry" rendered in a clean 3-column mobile grid
 - Responsive design (table on desktop, cards on mobile)
 
 ### Excel/CSV Import
@@ -96,7 +99,7 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 - **Searchable Vehicle Selector**: Modal selector with real-time Indian jurisdiction detection, vehicle model filtering, and manual override capability
 - **Dark Elevated Invoice Summary**: High-contrast dark gradient summary card matching enterprise pipeline styling
 - **Deep Tab Navigation**: Support for URL hash (`#manage`, `#create`) and search parameters for direct navigation from Statistics and Dashboard
-- **Mobile-Optimized Invoice Cards**: Non-wrapping registration numbers, streamlined mobile layout hiding redundant fleet tags, and clean settlement actions
+- **Mobile-Optimized Invoice Cards**: Non-wrapping registration numbers, streamlined layout without vehicle model clutter, reduced Net Billed Total typography with dedicated top spacing, and collision prevention with registration plate chips
 - **Entry Selection**: View and select specific entries for invoice with detailed information
 - **Real-time preview** before download
 - Create, edit, overwrite, and delete invoices
@@ -156,17 +159,17 @@ Built with Next.js and Zustand, the application stores data in browser's localSt
 
 ## Tech Stack
 
-| Layer                | Technologies                                       |
-| -------------------- | -------------------------------------------------- |
-| **Framework**        | Next.js 16 (App Router)                            |
-| **Frontend**         | React 19, TypeScript 7                             |
-| **State Management** | Zustand + localStorage persist                     |
-| **Styling**          | Tailwind CSS 4, Framer Motion                      |
-| **PDF Generation**   | @react-pdf/renderer                                |
-| **Charts**           | Recharts                                           |
-| **File Parsing**     | read-excel-file, write-excel-file                  |
-| **Icons**            | Lucide React                                       |
-| **Utilities**        | date-fns, GSAP                                     |
+| Layer                | Technologies                      |
+| -------------------- | --------------------------------- |
+| **Framework**        | Next.js 16 (App Router)           |
+| **Frontend**         | React 19, TypeScript 7            |
+| **State Management** | Zustand + localStorage persist    |
+| **Styling**          | Tailwind CSS 4, Framer Motion     |
+| **PDF Generation**   | @react-pdf/renderer               |
+| **Charts**           | Recharts                          |
+| **File Parsing**     | read-excel-file, write-excel-file |
+| **Icons**            | Lucide React                      |
+| **Utilities**        | date-fns, GSAP                    |
 
 ### Fonts
 
@@ -303,13 +306,13 @@ Zustand Store (src/store/useStore.ts)
         +--> Optional Google Drive sync (OAuth + Drive appDataFolder)
 ```
 
-| Layer | Responsibility |
-| ----- | -------------- |
-| **UI & Routing** | Pages, setup flow, dashboard, entries, invoices, settings |
-| **State Layer** | Centralized app state, mutations, persistence orchestration |
-| **Local Persistence** | Offline storage for structured data and media assets |
+| Layer                     | Responsibility                                                   |
+| ------------------------- | ---------------------------------------------------------------- |
+| **UI & Routing**          | Pages, setup flow, dashboard, entries, invoices, settings        |
+| **State Layer**           | Centralized app state, mutations, persistence orchestration      |
+| **Local Persistence**     | Offline storage for structured data and media assets             |
 | **Cloud Sync (Optional)** | Encrypted/managed backup + cross-device restore via Google Drive |
-| **Document Generation** | Invoice rendering and export to PDF |
+| **Document Generation**   | Invoice rendering and export to PDF                              |
 
 ---
 
@@ -317,12 +320,12 @@ Zustand Store (src/store/useStore.ts)
 
 Trippr works fully offline with zero required environment variables. Add configuration only for optional integrations/default assets.
 
-| Variable | Required | Purpose | Example |
-| -------- | -------- | ------- | ------- |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Optional (required for Google Drive sync) | Google OAuth 2.0 Client ID for frontend authorization code flow. | `1234567890-abc.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | Optional (required for Google Drive sync) | Google OAuth 2.0 Client Secret for server-side authorization code exchange and silent refresh. | `GOCSPX-abc123xyz...` |
-| `NEXT_PUBLIC_LOGO_BASE64` | Optional | Default logo used when no custom logo is uploaded in settings. | `data:image/png;base64,...` |
-| `NEXT_PUBLIC_SIGNATURE_BASE64` | Optional | Default signature used when no custom signature is uploaded in settings. | `data:image/png;base64,...` |
+| Variable                       | Required                                  | Purpose                                                                                        | Example                                     |
+| ------------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Optional (required for Google Drive sync) | Google OAuth 2.0 Client ID for frontend authorization code flow.                               | `1234567890-abc.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET`         | Optional (required for Google Drive sync) | Google OAuth 2.0 Client Secret for server-side authorization code exchange and silent refresh. | `GOCSPX-abc123xyz...`                       |
+| `NEXT_PUBLIC_LOGO_BASE64`      | Optional                                  | Default logo used when no custom logo is uploaded in settings.                                 | `data:image/png;base64,...`                 |
+| `NEXT_PUBLIC_SIGNATURE_BASE64` | Optional                                  | Default signature used when no custom signature is uploaded in settings.                       | `data:image/png;base64,...`                 |
 
 For local development, create a `.env.local` file (or copy `.env.example`) and set only the variables you need.
 
@@ -752,11 +755,11 @@ This hybrid approach enables:
 
 ### Known Limitations
 
-| Limitation            | Description                                        |
-| --------------------- | -------------------------------------------------- |
-| **Single User**       | Single-tenant local data store without multi-user roles or permissions |
-| **Browser Dependent** | Clearing browser data removes local storage copy (prevented by connecting Google Drive cloud sync) |
-| **Storage Cap**       | ~5,000 entries recommended maximum for browser storage |
+| Limitation              | Description                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Single User**         | Single-tenant local data store without multi-user roles or permissions                                     |
+| **Browser Dependent**   | Clearing browser data removes local storage copy (prevented by connecting Google Drive cloud sync)         |
+| **Storage Cap**         | ~5,000 entries recommended maximum for browser storage                                                     |
 | **Cloud Sync Strategy** | Continuous local-first operation with silent background token refresh and on-demand cloud sync checkpoints |
 
 ### Data Safety Tips

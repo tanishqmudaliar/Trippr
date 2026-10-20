@@ -359,6 +359,41 @@ export function formatDuration(decimalHours: number): string {
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
+// Format decimal hours as duration with units (e.g., 2.75 → "2 hrs 45 mins", 5.0 → "5 hrs", 0.5 → "30 mins")
+export function formatDurationWithUnits(decimalHours: number): string {
+  if (
+    isNaN(decimalHours) ||
+    decimalHours === undefined ||
+    decimalHours === null ||
+    decimalHours === 0
+  ) {
+    return "0 hrs";
+  }
+  const hours = Math.floor(Math.abs(decimalHours));
+  const minutes = Math.round((Math.abs(decimalHours) - hours) * 60);
+  if (hours > 0 && minutes > 0) {
+    return `${hours} hrs ${minutes} mins`;
+  }
+  if (hours > 0) {
+    return `${hours} hrs`;
+  }
+  return `${minutes} mins`;
+}
+
+// Format extra overtime as badge string (e.g., 5.5 → "+5 hrs 30 mins")
+export function formatExtraTimeBadge(decimalHours: number): string {
+  if (!decimalHours || decimalHours <= 0) return "";
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  if (hours > 0 && minutes > 0) {
+    return `+${hours} hrs ${minutes} mins`;
+  }
+  if (hours > 0) {
+    return `+${hours} hrs`;
+  }
+  return `+${minutes} mins`;
+}
+
 export function numberToWords(num: number): string {
   if (isNaN(num) || num === undefined || num === null || num < 0) {
     return "RUPEES ZERO ONLY";

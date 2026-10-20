@@ -37,12 +37,14 @@ import {
   decimalToTime,
   timeToDecimal,
   formatDuration,
+  formatDurationWithUnits,
   AdditionalCharge,
   getEntryDayCount,
 } from "@/lib/types";
 import readXlsxFile from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import DutyEntryCard from "@/components/DutyEntryCard";
+import { ClientSelector } from "@/components/ClientSelector";
 
 type EntryMode = "select" | "manual" | "upload";
 type DateMode = "single" | "multi";
@@ -1301,14 +1303,19 @@ export default function EntriesPage() {
 
     if (format === "csv") {
       const csv = [headers, ...rows]
-        .map((row) => row.map((value) => csvEscape(String(value ?? ""))).join(","))
+        .map((row) =>
+          row.map((value) => csvEscape(String(value ?? ""))).join(","),
+        )
         .join("\r\n");
       downloadBlob(csv, `${fileName}.csv`, "text/csv;charset=utf-8");
       showNotification("Entries exported as CSV", "success");
     } else {
-      const xlsxFile = writeXlsxFile([headers, ...rows] as (string | number)[][], {
-        sheet: "Entries",
-      });
+      const xlsxFile = writeXlsxFile(
+        [headers, ...rows] as (string | number)[][],
+        {
+          sheet: "Entries",
+        },
+      );
       await xlsxFile.toFile(`${fileName}.xlsx`);
       showNotification("Entries exported as Excel", "success");
     }
@@ -1402,34 +1409,39 @@ export default function EntriesPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-navy-500 font-medium">
-              Log daily odometer runnings, duty timings, tolls, and client assignments
+              Log daily odometer runnings, duty timings, tolls, and client
+              assignments
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Action Buttons: 3 equal buttons on mobile, natural flex on desktop */}
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-2.5 w-full sm:w-auto">
             <button
               onClick={() => {
                 resetForm();
                 setEntryMode("upload");
                 setShowForm(true);
               }}
-              className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-subtle flex items-center gap-2"
+              className="btn-secondary w-full text-xs sm:text-sm py-2 px-1.5 sm:px-3.5 shadow-subtle flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-center"
               title="Upload spreadsheet"
             >
-              <Upload className="w-4 h-4 text-navy-600" />
+              <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-navy-600 shrink-0" />
               <span>Import Log</span>
             </button>
 
             {/* Export Dropdown */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="relative w-full sm:w-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-subtle flex items-center gap-2"
+                className="btn-secondary w-full text-xs sm:text-sm py-2 px-1.5 sm:px-3.5 shadow-subtle flex items-center justify-center gap-1 sm:gap-2 whitespace-nowrap text-center"
                 title="Export entries"
               >
-                <Download className="w-4 h-4 text-navy-600" />
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-navy-600 shrink-0" />
                 <span>Export</span>
-                <ChevronDown className="w-3.5 h-3.5 text-navy-400" />
+                <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-navy-400 shrink-0" />
               </button>
               <AnimatePresence>
                 {showExportMenu && (
@@ -1437,7 +1449,7 @@ export default function EntriesPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-elevated border border-cream-200 overflow-hidden z-30 min-w-44"
+                    className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 bg-white rounded-xl shadow-elevated border border-cream-200 overflow-hidden z-30 min-w-44"
                   >
                     <button
                       onClick={() => {
@@ -1470,11 +1482,11 @@ export default function EntriesPage() {
                 setEntryMode("manual");
                 setShowForm(true);
               }}
-              className="btn-primary text-xs sm:text-sm py-2 px-4 shadow-sm"
+              className="btn-primary w-full text-xs sm:text-sm py-2 px-1.5 sm:px-4 shadow-sm flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-center"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Add Entry</span>
             </motion.button>
           </div>
@@ -1506,7 +1518,8 @@ export default function EntriesPage() {
               Total Distance
             </span>
             <span className="font-mono text-xl sm:text-2xl font-bold text-saffron-700">
-              {filteredStats.kms.toLocaleString()} <span className="text-xs font-semibold text-navy-500">km</span>
+              {filteredStats.kms.toLocaleString()}{" "}
+              <span className="text-xs font-semibold text-navy-500">km</span>
             </span>
           </div>
 
@@ -1519,8 +1532,11 @@ export default function EntriesPage() {
             <span className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 block mb-0.5 truncate">
               Total Duration
             </span>
-            <span className="font-mono text-xl sm:text-2xl font-bold text-navy-950">
-              {formatDuration(filteredStats.hours)}
+            <span
+              className="font-mono text-base sm:text-lg lg:text-xl font-bold text-navy-950 break-words leading-tight block"
+              title={formatDurationWithUnits(filteredStats.hours)}
+            >
+              {formatDurationWithUnits(filteredStats.hours)}
             </span>
           </div>
 
@@ -1534,7 +1550,8 @@ export default function EntriesPage() {
               Unbilled Pipeline
             </span>
             <span className="font-mono text-xl sm:text-2xl font-bold text-emerald-700">
-              {filteredStats.unbilled} <span className="text-xs font-semibold text-navy-500">trips</span>
+              {filteredStats.unbilled}{" "}
+              <span className="text-xs font-semibold text-navy-500">trips</span>
             </span>
           </div>
         </div>
@@ -1548,7 +1565,7 @@ export default function EntriesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by Duty ID, client, date, or remark..."
-              className="input-field w-full py-2 pl-9.5 text-xs sm:text-sm"
+              className="input-field w-full py-3 pl-9.5 text-xs sm:text-sm"
             />
             {searchQuery && (
               <button
@@ -1562,20 +1579,18 @@ export default function EntriesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 min-w-44 flex-1 sm:flex-none">
-              <Building2 className="w-4 h-4 text-navy-400 shrink-0" />
-              <select
-                value={filterClientId}
-                onChange={(e) => setFilterClientId(e.target.value)}
-                className="input-field py-2 text-xs sm:text-sm flex-1"
-              >
-                <option value="">All Clients ({clients.length})</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
+            <div className="min-w-48 sm:min-w-56 flex-1 sm:flex-none">
+              <ClientSelector
+                selectedClientId={filterClientId}
+                onSelectClient={setFilterClientId}
+                label=""
+                required={false}
+                allowClear
+                clearLabel="All Clients"
+                showManageLink={false}
+                size="sm"
+                placeholder="Filter by client..."
+              />
             </div>
 
             {(filterClientId || searchQuery) && (
@@ -1764,28 +1779,18 @@ export default function EntriesPage() {
 
                     {/* Client Selection */}
                     <div className="mt-2">
-                      <label className="block text-sm font-medium text-navy-700 mb-2">
-                        <Building2 className="w-4 h-4 inline mr-2" />
-                        Client <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={formData.clientId}
-                        onChange={(e) =>
+                      <ClientSelector
+                        selectedClientId={formData.clientId}
+                        onSelectClient={(id) =>
                           setFormData({
                             ...formData,
-                            clientId: e.target.value,
+                            clientId: id,
                           })
                         }
-                        className="input-field"
+                        label="Client"
                         required
-                      >
-                        <option value="">Select a client</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name}
-                          </option>
-                        ))}
-                      </select>
+                        showManageLink
+                      />
                     </div>
 
                     {/* Date Mode Toggle */}
@@ -2758,36 +2763,24 @@ export default function EntriesPage() {
                                       e.toLowerCase().includes("client"),
                                     ) && (
                                       <div>
-                                        <label className="block text-sm font-medium text-navy-700 mb-1">
-                                          Select Client
-                                        </label>
-                                        <select
-                                          value={entry.clientId}
-                                          onChange={(e) => {
+                                        <ClientSelector
+                                          selectedClientId={entry.clientId}
+                                          onSelectClient={(id) => {
                                             const selectedClient = clients.find(
-                                              (c) => c.id === e.target.value,
+                                              (c) => c.id === id,
                                             );
                                             updateUploadedEntry(index, {
-                                              clientId: e.target.value,
+                                              clientId: id,
                                               clientName:
                                                 selectedClient?.name ||
                                                 entry.clientName,
                                             });
                                           }}
-                                          className="input-field w-full"
-                                        >
-                                          <option value="">
-                                            -- Select Client --
-                                          </option>
-                                          {clients.map((client) => (
-                                            <option
-                                              key={client.id}
-                                              value={client.id}
-                                            >
-                                              {client.name}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          label="Select Client"
+                                          required
+                                          size="sm"
+                                          showManageLink={false}
+                                        />
                                         {entry.clientName &&
                                           !entry.clientId && (
                                             <p className="text-xs text-amber-600 mt-1">

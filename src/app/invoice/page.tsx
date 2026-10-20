@@ -39,6 +39,7 @@ import {
   decimalToTime,
   getInvoiceVehicleNumber,
   getInvoiceVehicle,
+  formatDurationWithUnits,
 } from "@/lib/types";
 import type { DutyEntry, Client, CompanyInfo, Vehicle } from "@/lib/types";
 import { createPortal } from "react-dom";
@@ -46,6 +47,7 @@ import { InvoicePDFDownload } from "@/components/InvoicePDF";
 import { getAssetWithFallback } from "@/lib/assetStorage";
 import DutyEntryCard from "@/components/DutyEntryCard";
 import { FleetVehicleSelector } from "@/components/FleetVehicleSelector";
+import { ClientSelector } from "@/components/ClientSelector";
 import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 type TabType = "create" | "edit";
@@ -60,7 +62,12 @@ export default function InvoicePage() {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab")?.toLowerCase();
 
-      if (hash === "#manage" || hash === "#edit" || tabParam === "manage" || tabParam === "edit") {
+      if (
+        hash === "#manage" ||
+        hash === "#edit" ||
+        tabParam === "manage" ||
+        tabParam === "edit"
+      ) {
         setActiveTab("edit");
       } else if (hash === "#create" || tabParam === "create") {
         setActiveTab("create");
@@ -81,7 +88,11 @@ export default function InvoicePage() {
     if (typeof window !== "undefined") {
       const targetHash = tab === "edit" ? "#manage" : "#create";
       if (window.location.hash !== targetHash) {
-        window.history.replaceState(null, "", `${window.location.pathname}${targetHash}`);
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${targetHash}`,
+        );
       }
     }
   };
@@ -99,7 +110,8 @@ export default function InvoicePage() {
             Tax Invoices & Billing
           </h1>
           <p className="text-xs sm:text-sm text-navy-500 font-medium">
-            Generate GST-ready PDF invoices, track settlements, and manage billing archives
+            Generate GST-ready PDF invoices, track settlements, and manage
+            billing archives
           </p>
         </div>
 
@@ -756,7 +768,10 @@ function EditInvoiceTab() {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const client = clients.find((c) => c.id === invoice.clientId);
-        const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles).toLowerCase();
+        const resolvedPlate = getInvoiceVehicleNumber(
+          invoice,
+          vehicles,
+        ).toLowerCase();
         const invoiceNum = invoice.invoiceNumber.toLowerCase();
         const clientName = client?.name.toLowerCase() || "";
         const formattedDate = formatDate(invoice.invoiceDate).toLowerCase();
@@ -807,11 +822,13 @@ function EditInvoiceTab() {
                   Manage Invoices
                 </h2>
                 <span className="badge badge-navy text-xs">
-                  {invoices.length} {invoices.length === 1 ? "Record" : "Records"}
+                  {invoices.length}{" "}
+                  {invoices.length === 1 ? "Record" : "Records"}
                 </span>
               </div>
               <p className="text-xs text-navy-500 font-medium mt-0.5">
-                Audit, edit, and export tax invoices with dynamic fleet registration tracking
+                Audit, edit, and export tax invoices with dynamic fleet
+                registration tracking
               </p>
             </div>
           </div>
@@ -827,7 +844,7 @@ function EditInvoiceTab() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by invoice #, client, vehicle plate, or date..."
-              className="input-field w-full py-2 pl-9.5 text-xs sm:text-sm"
+              className="input-field w-full py-3 pl-9.5 text-xs sm:text-sm"
             />
             {searchQuery && (
               <button
@@ -842,20 +859,18 @@ function EditInvoiceTab() {
 
           {/* Client Filter */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 min-w-44 flex-1 sm:flex-none">
-              <Building2 className="w-4 h-4 text-navy-400 shrink-0" />
-              <select
-                value={filterClientId}
-                onChange={(e) => setFilterClientId(e.target.value)}
-                className="input-field py-2 text-xs sm:text-sm flex-1"
-              >
-                <option value="">All Clients ({clients.length})</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
+            <div className="min-w-48 sm:min-w-56 flex-1 sm:flex-none">
+              <ClientSelector
+                selectedClientId={filterClientId}
+                onSelectClient={setFilterClientId}
+                label=""
+                required={false}
+                allowClear
+                clearLabel="All Clients"
+                showManageLink={false}
+                size="sm"
+                placeholder="Filter by client..."
+              />
             </div>
 
             {(filterClientId || searchQuery) && (
@@ -876,7 +891,8 @@ function EditInvoiceTab() {
         {filteredInvoices.length > 0 && (
           <div className="flex items-center justify-between text-xs text-navy-500 pb-3 mb-4 border-b border-cream-100 flex-wrap gap-2">
             <span>
-              Showing <strong>{filteredInvoices.length}</strong> of <strong>{invoices.length}</strong> invoices
+              Showing <strong>{filteredInvoices.length}</strong> of{" "}
+              <strong>{invoices.length}</strong> invoices
             </span>
             <span className="font-medium text-navy-700">
               Total Filtered Volume:{" "}
@@ -897,7 +913,8 @@ function EditInvoiceTab() {
               No invoices generated yet
             </h3>
             <p className="text-xs text-navy-500 mb-4 max-w-xs mx-auto">
-              Select duty slips in Create Invoice tab to generate GST-compliant tax invoices.
+              Select duty slips in Create Invoice tab to generate GST-compliant
+              tax invoices.
             </p>
           </div>
         ) : filteredInvoices.length === 0 ? (
@@ -949,7 +966,8 @@ function EditInvoiceTab() {
 
               const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles);
               const isLinkedToFleet = Boolean(
-                invoice.vehicleId && vehicles.some((v) => v.id === invoice.vehicleId),
+                invoice.vehicleId &&
+                vehicles.some((v) => v.id === invoice.vehicleId),
               );
               const linkedVehicle = invoice.vehicleId
                 ? vehicles.find((v) => v.id === invoice.vehicleId)
@@ -974,7 +992,7 @@ function EditInvoiceTab() {
                       <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
                         <FileText className="w-5 h-5 text-navy-600 group-hover:text-saffron-600 transition-colors" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-display text-base font-bold text-navy-950">
                             #{invoice.invoiceNumber}
@@ -991,7 +1009,6 @@ function EditInvoiceTab() {
 
                         {/* Vehicle Number Display with Indian Plate chip aesthetic */}
                         <div className="flex items-center gap-2 text-xs text-navy-600 mt-1.5 flex-wrap">
-                          <Car className="w-3.5 h-3.5 text-navy-400 shrink-0" />
                           {isLinkedToFleet ? (
                             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
                               <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
@@ -1003,27 +1020,24 @@ function EditInvoiceTab() {
                             </div>
                           ) : (
                             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-800 font-mono text-xs font-semibold shrink-0 whitespace-nowrap">
-                              <span className="whitespace-nowrap">{invoice.vehicleNumberForInvoice || "Unlinked"}</span>
+                              <span className="whitespace-nowrap">
+                                {invoice.vehicleNumberForInvoice || "Unlinked"}
+                              </span>
                               <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded uppercase font-bold shrink-0">
                                 Legacy
                               </span>
                             </div>
-                          )}
-                          {linkedVehicle?.model && (
-                            <span className="text-[11px] text-navy-400 truncate max-w-28 hidden md:inline" title={linkedVehicle.model}>
-                              • {linkedVehicle.model}
-                            </span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {/* Net Billed Total Pill */}
-                    <div className="bg-cream-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0">
+                    <div className="bg-cream-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0 sm:text-right sm:pl-3">
                       <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
                         Net Billed Total
                       </span>
-                      <span className="font-mono text-base sm:text-lg font-bold text-saffron-700 leading-tight whitespace-nowrap">
+                      <span className="font-mono text-sm sm:text-base font-bold text-saffron-700 leading-tight whitespace-nowrap mt-0.5 sm:mt-1.5 block">
                         {formatCurrency(invoice.roundedTotal)}
                       </span>
                     </div>
@@ -1047,7 +1061,8 @@ function EditInvoiceTab() {
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 text-navy-700 text-xs shadow-2xs">
                       <ClipboardList className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
                       <span className="font-medium">
-                        {invoice.entryIds.length} {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
+                        {invoice.entryIds.length}{" "}
+                        {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
                       </span>
                       <span className="text-navy-300">•</span>
                       <span className="text-navy-500 font-medium">
@@ -1058,7 +1073,7 @@ function EditInvoiceTab() {
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
                       <span>{totalKms} km</span>
                       <span className="text-navy-300">•</span>
-                      <span>{formatDuration(totalHours)}</span>
+                      <span>{formatDurationWithUnits(totalHours)}</span>
                     </div>
 
                     {totalExtraKms > 0 && (
@@ -1070,7 +1085,9 @@ function EditInvoiceTab() {
 
                     {invoice.totalTollParking > 0 && (
                       <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
-                        <span>Toll: {formatCurrency(invoice.totalTollParking)}</span>
+                        <span>
+                          Toll: {formatCurrency(invoice.totalTollParking)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1081,7 +1098,9 @@ function EditInvoiceTab() {
                       <button
                         onClick={() => setSelectedInvoiceId(invoice.id)}
                         className={`btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 transition-all ${
-                          isSelected ? "bg-saffron-100 text-saffron-800 border-saffron-300" : ""
+                          isSelected
+                            ? "bg-saffron-100 text-saffron-800 border-saffron-300"
+                            : ""
                         }`}
                         title="Edit invoice details"
                       >
@@ -1137,7 +1156,8 @@ function EditInvoiceTab() {
                   Editing Tax Invoice #{selectedInvoice.invoiceNumber}
                 </p>
                 <p className="text-[11px] text-saffron-700">
-                  Modify date, assign fleet vehicles, and re-calculate duty entries
+                  Modify date, assign fleet vehicles, and re-calculate duty
+                  entries
                 </p>
               </div>
             </div>
@@ -1176,7 +1196,9 @@ function EditInvoiceTab() {
                 className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 mb-6"
               >
                 <AlertCircle className="w-5 h-5 text-red-500" />
-                <p className="text-red-700 text-xs sm:text-sm font-medium">{validationError}</p>
+                <p className="text-red-700 text-xs sm:text-sm font-medium">
+                  {validationError}
+                </p>
                 <button
                   onClick={() => setValidationError(null)}
                   className="ml-auto w-6 h-6 rounded-lg hover:bg-red-100 flex items-center justify-center"
@@ -1293,7 +1315,11 @@ function EditInvoiceTab() {
                   <p className="text-navy-600 text-sm">
                     Are you sure you want to delete invoice{" "}
                     <strong className="font-mono text-navy-900">
-                      #{invoices.find((i) => i.id === deleteTargetId)?.invoiceNumber}
+                      #
+                      {
+                        invoices.find((i) => i.id === deleteTargetId)
+                          ?.invoiceNumber
+                      }
                     </strong>
                     ? This action cannot be undone.
                   </p>
@@ -1412,33 +1438,23 @@ function ClientDetailsCard({
         Client Details & Fleet Vehicle
       </h2>
       <div className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-navy-700 mb-2">
-            Client Name <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={selectedClientId}
-            onChange={(e) => {
-              setSelectedClientId(e.target.value);
-              if (validationError && setValidationError) setValidationError(null);
-            }}
-            className="input-field"
-          >
-            <option value="">Select a client</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ClientSelector
+          selectedClientId={selectedClientId}
+          onSelectClient={(id) => {
+            setSelectedClientId(id);
+            if (validationError && setValidationError) setValidationError(null);
+          }}
+          label="Client Name"
+          required
+        />
         <div>
           <FleetVehicleSelector
             selectedVehicleId={vehicleId}
             onSelectVehicle={(id, plate) => {
               setVehicleId(id);
               setVehicleNumber(plate);
-              if (validationError && setValidationError) setValidationError(null);
+              if (validationError && setValidationError)
+                setValidationError(null);
             }}
             legacyPlateFallback={vehicleNumber}
             label="Assigned Fleet Vehicle"

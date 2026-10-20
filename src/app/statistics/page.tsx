@@ -25,6 +25,7 @@ import Link from "next/link";
 import {
   formatDate,
   formatCurrency,
+  formatDurationWithUnits,
   calculateInvoiceTotals,
   getEntryDayCount,
 } from "@/lib/types";
@@ -464,7 +465,7 @@ export default function StatisticsPage() {
         <MetricCard
           icon={Clock}
           label="Extra Waiting"
-          value={`${stats.totalExtraHours.toFixed(1)} hrs`}
+          value={formatDurationWithUnits(stats.totalExtraHours)}
           helper="Overtime Logged"
         />
         <MetricCard
@@ -756,7 +757,7 @@ export default function StatisticsPage() {
                                       Duration
                                     </span>
                                     <span className="font-mono font-bold text-navy-800">
-                                      {entry.totalTime.toFixed(1)} hrs
+                                      {formatDurationWithUnits(entry.totalTime)}
                                     </span>
                                   </div>
                                 </div>
@@ -765,7 +766,7 @@ export default function StatisticsPage() {
                                   <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px]">
                                     {entry.extraKms > 0 && (
                                       <span className="badge badge-saffron">
-                                        +{entry.extraKms} km extra
+                                        +{entry.extraKms} km
                                       </span>
                                     )}
                                     {totalCharges > 0 && (
@@ -816,7 +817,10 @@ function MetricCard({
             {label}
           </span>
         </div>
-        <p className="font-mono text-lg lg:text-xl font-bold text-navy-950 truncate">
+        <p
+          className="font-mono text-base sm:text-lg lg:text-xl font-bold text-navy-950 break-words leading-tight"
+          title={`${prefix}${value}`}
+        >
           {prefix}
           {value}
         </p>
