@@ -32,7 +32,6 @@ A modern, offline-first invoice and duty management system for transport busines
 - [File Import](#file-import)
 - [PDF Invoice Structure](#pdf-invoice-structure)
 - [Storage & Limitations](#storage--limitations)
-- [Changelog](#changelog)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
@@ -769,32 +768,6 @@ This hybrid approach enables:
 5. **Keep backup safe** - If encrypted, remember your encryption key
 6. **Download invoices** - Keep PDF copies as records
 7. **Regular browser** - Don't use incognito/private mode
-
----
-
-## Changelog
-
-### v1.5.1 (Patch Release)
-
-- **Indian Vehicle Plate Detection Engine**:
-  - Implemented full jurisdiction parsing for all 28 Indian States, 8 Union Territories, historical RTO codes (e.g., OR, UA), and Ministry of Road Transport & Highways (MoRTH) Bharat Series (`BH`) number plates (`YY BH #### XX`).
-  - Added jurisdiction pill badges (`IND • MH`, `IND • DL`, `IND • BH`) with standardized typography across Settings, Vehicle Selector, and Invoices.
-  - Comprehensive unit test suite covering state validation, normalization, and BH plate pattern matching.
-- **Invoice & Fleet Relational Integration**:
-  - Connected invoices directly to fleet vehicles via first-class `vehicleId` foreign key relationship.
-  - Built interactive, searchable `FleetVehicleSelector` modal with real-time plate validation and manual number plate fallback.
-  - Safe data migration with dual-write fallback preserving historical plate snapshots and preventing orphaned record failures.
-- **Cross-App UI/UX Design System Unification**:
-  - Matched Recent Duty Entries cards to Recent Invoices styling tokens (`rounded-2xl`, status badges, client affiliation rows, and structured layout).
-  - Applied the dark elevated enterprise pipeline gradient (`bg-linear-to-br from-navy-950 via-navy-900 to-navy-950`) with saffron accents to both the Dashboard Billed Revenue hero card and the Create Invoice Summary breakdown card.
-  - Fixed mobile plate squeezing in Manage Invoices with no-wrap containers and responsive fleet label concealment.
-  - Simplified Manage Invoices by pruning obsolete filter toggles and redundant badges.
-- **Deep Tab Navigation & Routing**:
-  - Added URL hash (`#manage`, `#create`) and search param synchronization to `/invoice` for seamless tab switching.
-  - Updated Statistics and Dashboard navigation links to route directly to either the Manage Invoices archive or Create Invoice generator.
-- **Statistics & Chart Precision**:
-  - Disambiguated duplicate/affiliate client names in Recharts Top Clients by Billed Revenue chart using unique IDs.
-  - Added collision-resistant label formatting and high-precision custom hover tooltips showing exact billing amounts and settled invoice counts.
 
 ---
 

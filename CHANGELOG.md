@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-21
+
+### Added
+
+- **Indian Vehicle Plate Detection Engine**: Real-time parsing and jurisdiction identification across all 28 States, 8 Union Territories, historical RTO codes, and Ministry of Road Transport & Highways (MoRTH) Bharat Series (`BH`) number plates (`YY BH #### XX`), complete with smart badge indicators (`IND • MH`, `IND • BH`).
+- **Invoice & Fleet Relational Integration**: First-class `vehicleId` foreign key relationship on tax invoices connecting them to fleet vehicles, supported by a searchable `FleetVehicleSelector` modal with real-time plate validation and manual override fallback.
+- **Deep Tab Navigation**: Support for URL hash (`#manage`, `#create`) and search parameters on `/invoice` allowing direct cross-page navigation from statistics and dashboard cards.
+
+### Changed
+
+- **Cross-App UI/UX Design System Unification**:
+  - Matched Recent Duty Entries cards to Recent Invoices visual tokens (`rounded-2xl`, status badges, client affiliation rows, and structured layout).
+  - Applied the dark elevated enterprise pipeline gradient (`bg-linear-to-br from-navy-950 via-navy-900 to-navy-950`) with saffron accents to both Dashboard Billed Revenue hero card and Create Invoice Summary breakdown card.
+  - Simplified Manage Invoices by pruning obsolete filter toggles and redundant badges.
+- **Documentation Standards**:
+  - Updated `README.md` to reflect unified card tokens, fleet integration, and Indian jurisdiction badges.
+
+### Fixed
+
+- **Manage Invoices Mobile Layout**: Prevented vehicle registration numbers from getting squeezed on mobile viewports using no-wrap containers and responsive fleet label concealment.
+- **Statistics Chart Category Collision & Tooltip Bug**: Fixed client identity collision in Recharts Top Clients by Billed Revenue chart by indexing uniquely on `clientId`, adding uncolliding axis labels, and custom high-precision hover tooltips showing exact billing figures.
+- **Statistics Invoice Routing**: Fixed View Invoices link navigating to Create Invoice instead of the Manage Invoices archive.
+
 ## [1.5.0] - 2026-10-19
 
 ### Added
@@ -97,7 +120,8 @@ All notable changes to this project will be documented in this file. The format 
 
 - Updated README with technology badges, overview, installation steps, and project structure
 
-[Unreleased]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/tanishqmudaliar/Trippr/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/tanishqmudaliar/Trippr/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/tanishqmudaliar/Trippr/compare/v1.2.0...v1.3.0
