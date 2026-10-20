@@ -71,7 +71,8 @@ export interface Invoice {
   invoiceNumber: string;
   invoiceDate: string;
   clientId: string;
-  vehicleNumberForInvoice: string;
+  vehicleId?: string; // Stable foreign-key reference to Vehicle.id in Fleet
+  vehicleNumberForInvoice: string; // Snapshot / fallback plate for historical or unlinked records
   entryIds: string[];
   // Calculated totals
   totalDays: number;
@@ -88,6 +89,36 @@ export interface Invoice {
   netTotal: number;
   roundedTotal: number;
   createdAt: string;
+}
+
+/**
+ * Resolves the display vehicle number for an invoice.
+ * If invoice is linked to a valid fleet vehicle via vehicleId, returns that vehicle's current numberPlate.
+ * Otherwise, falls back to the historical vehicleNumberForInvoice snapshot.
+ */
+export function getInvoiceVehicleNumber(
+  invoice: { vehicleId?: string; vehicleNumberForInvoice?: string } | null | undefined,
+  vehicles: Vehicle[],
+): string {
+  if (!invoice) return "";
+  if (invoice.vehicleId && Array.isArray(vehicles)) {
+    const matched = vehicles.find((v) => v.id === invoice.vehicleId);
+    if (matched) {
+      return matched.numberPlate;
+    }
+  }
+  return invoice.vehicleNumberForInvoice || "";
+}
+
+/**
+ * Returns the linked Vehicle object if available.
+ */
+export function getInvoiceVehicle(
+  invoice: { vehicleId?: string } | null | undefined,
+  vehicles: Vehicle[],
+): Vehicle | undefined {
+  if (!invoice?.vehicleId || !Array.isArray(vehicles)) return undefined;
+  return vehicles.find((v) => v.id === invoice.vehicleId);
 }
 
 // Utility functions

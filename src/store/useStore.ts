@@ -108,14 +108,16 @@ interface AppState {
     invoiceNumber: string,
     invoiceDate: string,
     clientId: string,
-    vehicleNumber: string,
+    vehicleIdOrNumber: string,
     entryIds: string[],
+    fallbackPlate?: string,
   ) => Invoice | null;
   updateInvoice: (
     id: string,
     updates: {
       invoiceNumber?: string;
       invoiceDate?: string;
+      vehicleId?: string;
       vehicleNumberForInvoice?: string;
       entryIds?: string[];
     },
@@ -284,15 +286,31 @@ export const useStore = create<AppState>()(
       },
 
       updateVehicle: (id, updates) => {
-        set((state) => ({
-          vehicles: updates.isDefault
+        set((state) => {
+          const updatedVehicles = updates.isDefault
             ? state.vehicles.map((v) =>
                 v.id === id ? { ...v, ...updates } : { ...v, isDefault: false },
               )
             : state.vehicles.map((v) =>
                 v.id === id ? { ...v, ...updates } : v,
-              ),
-        }));
+              );
+
+          // When a fleet vehicle's registration plate changes, automatically update
+          // the cached plate snapshot on all linked invoices
+          const updatedPlate = updates.numberPlate ? updates.numberPlate.trim().toUpperCase() : undefined;
+          const updatedInvoices = updatedPlate
+            ? state.invoices.map((inv) =>
+                inv.vehicleId === id
+                  ? { ...inv, vehicleNumberForInvoice: updatedPlate }
+                  : inv,
+              )
+            : state.invoices;
+
+          return {
+            vehicles: updatedVehicles,
+            invoices: updatedInvoices,
+          };
+        });
       },
 
       deleteVehicle: (id) => {
@@ -434,8 +452,9 @@ export const useStore = create<AppState>()(
         invoiceNumber,
         invoiceDate,
         clientId,
-        vehicleNumber,
+        vehicleIdOrNumber,
         entryIds,
+        fallbackPlate,
       ) => {
         const state = get();
         const client = state.clients.find((c) => c.id === clientId);
@@ -450,13 +469,33 @@ export const useStore = create<AppState>()(
           return null;
         }
 
+        // Resolve vehicle reference: first by vehicle ID, then by registration number plate
+        let resolvedVehicleId: string | undefined = undefined;
+        let resolvedPlateNumber = fallbackPlate || vehicleIdOrNumber || "";
+
+        const vehicleById = state.vehicles.find((v) => v.id === vehicleIdOrNumber);
+        if (vehicleById) {
+          resolvedVehicleId = vehicleById.id;
+          resolvedPlateNumber = vehicleById.numberPlate;
+        } else {
+          const cleanPlate = vehicleIdOrNumber.trim().toUpperCase();
+          const vehicleByPlate = state.vehicles.find(
+            (v) => v.numberPlate.trim().toUpperCase() === cleanPlate,
+          );
+          if (vehicleByPlate) {
+            resolvedVehicleId = vehicleByPlate.id;
+            resolvedPlateNumber = vehicleByPlate.numberPlate;
+          }
+        }
+
         const totals = calculateInvoiceTotals(entries, client);
         const invoice: Invoice = {
           id: generateId(),
           invoiceNumber,
           invoiceDate,
           clientId,
-          vehicleNumberForInvoice: vehicleNumber,
+          vehicleId: resolvedVehicleId,
+          vehicleNumberForInvoice: resolvedPlateNumber,
           entryIds,
           ...totals,
           createdAt: new Date().toISOString(),
@@ -496,9 +535,34 @@ export const useStore = create<AppState>()(
           newTotals = calculateInvoiceTotals(entries, client);
         }
 
+        // Synchronize vehicleId and vehicleNumberForInvoice
+        let syncedVehicleId = updates.vehicleId !== undefined ? updates.vehicleId : invoice.vehicleId;
+        let syncedPlate = updates.vehicleNumberForInvoice !== undefined
+          ? updates.vehicleNumberForInvoice
+          : invoice.vehicleNumberForInvoice;
+
+        if (updates.vehicleId) {
+          const matchedVehicle = state.vehicles.find((v) => v.id === updates.vehicleId);
+          if (matchedVehicle) {
+            syncedVehicleId = matchedVehicle.id;
+            syncedPlate = matchedVehicle.numberPlate;
+          }
+        } else if (updates.vehicleNumberForInvoice && !updates.vehicleId) {
+          const cleanPlate = updates.vehicleNumberForInvoice.trim().toUpperCase();
+          const matchedVehicle = state.vehicles.find(
+            (v) => v.numberPlate.trim().toUpperCase() === cleanPlate,
+          );
+          if (matchedVehicle) {
+            syncedVehicleId = matchedVehicle.id;
+            syncedPlate = matchedVehicle.numberPlate;
+          }
+        }
+
         const updatedInvoice: Invoice = {
           ...invoice,
           ...updates,
+          vehicleId: syncedVehicleId,
+          vehicleNumberForInvoice: syncedPlate,
           ...newTotals,
         };
 
@@ -594,6 +658,24 @@ export const useStore = create<AppState>()(
 
           // Update entries silently (without success message)
           useStore.setState({ entries: recalculatedEntries });
+        }
+
+        // Synchronize linked invoices with current vehicle registration numbers
+        if (state.invoices && state.invoices.length > 0 && state.vehicles && state.vehicles.length > 0) {
+          let hasInvoicePlateUpdates = false;
+          const updatedInvoices = state.invoices.map((inv) => {
+            if (inv.vehicleId) {
+              const matchedVehicle = state.vehicles.find((v) => v.id === inv.vehicleId);
+              if (matchedVehicle && matchedVehicle.numberPlate !== inv.vehicleNumberForInvoice) {
+                hasInvoicePlateUpdates = true;
+                return { ...inv, vehicleNumberForInvoice: matchedVehicle.numberPlate };
+              }
+            }
+            return inv;
+          });
+          if (hasInvoicePlateUpdates) {
+            useStore.setState({ invoices: updatedInvoices });
+          }
         }
       },
     },

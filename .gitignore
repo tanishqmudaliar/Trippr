@@ -34,3 +34,8 @@ cloud.google.com-localhost.json
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Migration backups and temporary files
+*.bak
+*backup*.json
+migration-*.json
