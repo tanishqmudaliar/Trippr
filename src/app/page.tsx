@@ -176,16 +176,28 @@ export default function LandingPage() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-navy-600">
-            <a href="#features" className="hover:text-saffron-600 transition-colors">
+            <a
+              href="#features"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Features
             </a>
-            <a href="#preview" className="hover:text-saffron-600 transition-colors">
+            <a
+              href="#preview"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Live Preview
             </a>
-            <a href="#workflow" className="hover:text-saffron-600 transition-colors">
+            <a
+              href="#workflow"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Workflow
             </a>
-            <Link href="/privacy" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Privacy
             </Link>
           </nav>
@@ -213,7 +225,9 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-saffron-100/90 border border-saffron-300/80 text-saffron-800 text-xs font-semibold mb-8 shadow-xs"
           >
             <span className="flex h-2 w-2 rounded-full bg-saffron-500 animate-pulse" />
-            <span>v1.0 Production Release • Offline-First Transport Management</span>
+            <span>
+              Transport, Simplified • Offline-First Transport Management
+            </span>
           </motion.div>
 
           {/* Main Headline */}
@@ -236,9 +250,10 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-lg sm:text-xl text-navy-600 max-w-3xl mx-auto leading-relaxed mb-10 font-normal"
           >
-            The dedicated operating system for transport operators, cab owners, and logistics agencies.
-            Log vehicle meter runnings offline, compute extra kilometers & hours automatically,
-            and generate audit-ready PDF invoices in seconds.
+            The dedicated operating system for transport operators, cab owners,
+            and logistics agencies. Log vehicle meter runnings offline, compute
+            extra kilometers & hours automatically, and generate audit-ready PDF
+            invoices in seconds.
           </motion.p>
 
           {/* CTA Group */}
@@ -252,7 +267,9 @@ export default function LandingPage() {
               onClick={handleGetStarted}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-linear-to-r from-saffron-500 to-saffron-600 hover:from-saffron-600 hover:to-saffron-700 text-white font-semibold text-base shadow-elevated hover:shadow-floating transition-all"
             >
-              <span>{isFullySetup ? "Open Dashboard" : "Get Started Free"}</span>
+              <span>
+                {isFullySetup ? "Open Dashboard" : "Get Started Free"}
+              </span>
               <ArrowRight className="w-5 h-5" />
             </button>
             <a
@@ -292,7 +309,10 @@ export default function LandingPage() {
       </section>
 
       {/* Interactive UI Showcase Section */}
-      <section id="preview" className="py-12 bg-cream-100/60 border-y border-cream-200/80">
+      <section
+        id="preview"
+        className="py-12 bg-cream-100/60 border-y border-cream-200/80"
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <span className="text-xs font-bold uppercase tracking-wider text-saffron-600 mb-2 block">
@@ -342,17 +362,25 @@ export default function LandingPage() {
                     <ClipboardList className="w-4 h-4 text-saffron-600" />
                     Latest Duty Entry #84920184
                   </h3>
-                  <span className="badge badge-saffron text-xs">Single Day Trip</span>
+                  <span className="badge badge-saffron text-xs">
+                    Single Day Trip
+                  </span>
                 </div>
 
                 <div className="p-4 rounded-xl bg-cream-50/70 border border-cream-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-navy-400 font-medium">Client Account</p>
-                      <p className="text-sm font-bold text-navy-900">Apex Global Logistics</p>
+                      <p className="text-xs text-navy-400 font-medium">
+                        Client Account
+                      </p>
+                      <p className="text-sm font-bold text-navy-900">
+                        Apex Global Logistics
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-navy-400 font-medium">Vehicle Assigned</p>
+                      <p className="text-xs text-navy-400 font-medium">
+                        Vehicle Assigned
+                      </p>
                       <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-white border border-cream-200 text-navy-800">
                         MH 02 CZ 4491
                       </span>
@@ -362,20 +390,36 @@ export default function LandingPage() {
                   {/* Meter & Time metrics row */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
                     <div className="p-2.5 bg-white rounded-lg border border-cream-200/80">
-                      <p className="text-[10px] text-navy-400 uppercase font-semibold">Start Km</p>
-                      <p className="font-mono text-sm font-bold text-navy-800">42,150</p>
+                      <p className="text-[10px] text-navy-400 uppercase font-semibold">
+                        Start Km
+                      </p>
+                      <p className="font-mono text-sm font-bold text-navy-800">
+                        42,150
+                      </p>
                     </div>
                     <div className="p-2.5 bg-white rounded-lg border border-cream-200/80">
-                      <p className="text-[10px] text-navy-400 uppercase font-semibold">Close Km</p>
-                      <p className="font-mono text-sm font-bold text-navy-800">42,325</p>
+                      <p className="text-[10px] text-navy-400 uppercase font-semibold">
+                        Close Km
+                      </p>
+                      <p className="font-mono text-sm font-bold text-navy-800">
+                        42,325
+                      </p>
                     </div>
                     <div className="p-2.5 bg-white rounded-lg border border-cream-200/80">
-                      <p className="text-[10px] text-navy-400 uppercase font-semibold">Total Run</p>
-                      <p className="font-mono text-sm font-bold text-saffron-600">175 km</p>
+                      <p className="text-[10px] text-navy-400 uppercase font-semibold">
+                        Total Run
+                      </p>
+                      <p className="font-mono text-sm font-bold text-saffron-600">
+                        175 km
+                      </p>
                     </div>
                     <div className="p-2.5 bg-white rounded-lg border border-cream-200/80">
-                      <p className="text-[10px] text-navy-400 uppercase font-semibold">Extra Distance</p>
-                      <p className="font-mono text-sm font-bold text-emerald-600">+95 km</p>
+                      <p className="text-[10px] text-navy-400 uppercase font-semibold">
+                        Extra Distance
+                      </p>
+                      <p className="font-mono text-sm font-bold text-emerald-600">
+                        +95 km
+                      </p>
                     </div>
                   </div>
 
@@ -384,14 +428,19 @@ export default function LandingPage() {
                       <Clock className="w-3.5 h-3.5 text-navy-400" />
                       <span>07:30 AM to 06:45 PM (11h 15m)</span>
                     </div>
-                    <span className="font-mono font-semibold text-navy-700">Toll: ₹250</span>
+                    <span className="font-mono font-semibold text-navy-700">
+                      Toll: ₹250
+                    </span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-saffron-50/60 rounded-xl border border-saffron-200/70 flex items-center justify-between text-xs">
-                  <span className="text-navy-700 font-medium">Automatic Rates Engine</span>
+                  <span className="text-navy-700 font-medium">
+                    Automatic Rates Engine
+                  </span>
                   <span className="text-saffron-800 font-semibold">
-                    Package: 80 km / 8 hrs • Extra Km: ₹14/km • Extra Hr: ₹120/hr
+                    Package: 80 km / 8 hrs • Extra Km: ₹14/km • Extra Hr:
+                    ₹120/hr
                   </span>
                 </div>
               </div>
@@ -404,7 +453,9 @@ export default function LandingPage() {
                       <p className="text-[10px] uppercase tracking-wider text-saffron-400 font-semibold">
                         Generated Tax Invoice
                       </p>
-                      <p className="font-display text-lg font-bold">INV-2026-0042</p>
+                      <p className="font-display text-lg font-bold">
+                        INV-2026-0042
+                      </p>
                     </div>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       Ready to Download
@@ -437,7 +488,9 @@ export default function LandingPage() {
 
                 <div className="pt-3 border-t border-navy-800">
                   <div className="flex justify-between items-baseline mb-3">
-                    <span className="text-xs text-navy-300">Net Invoice Total</span>
+                    <span className="text-xs text-navy-300">
+                      Net Invoice Total
+                    </span>
                     <span className="font-mono text-xl font-bold text-saffron-400">
                       ₹ 4,576.00
                     </span>
@@ -459,7 +512,10 @@ export default function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section
+        id="features"
+        className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+      >
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs font-bold uppercase tracking-wider text-saffron-600 mb-2 block">
             End-to-End Capabilities
@@ -468,7 +524,8 @@ export default function LandingPage() {
             Engineered for precision and speed
           </h2>
           <p className="text-base text-navy-600 mt-3">
-            Every feature is designed specifically for commercial fleet owners, drivers, and transport managers.
+            Every feature is designed specifically for commercial fleet owners,
+            drivers, and transport managers.
           </p>
         </div>
 
@@ -507,7 +564,10 @@ export default function LandingPage() {
       </section>
 
       {/* 3-Step Workflow Section */}
-      <section id="workflow" className="py-16 bg-cream-100/50 border-t border-cream-200/80">
+      <section
+        id="workflow"
+        className="py-16 bg-cream-100/50 border-t border-cream-200/80"
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-bold uppercase tracking-wider text-saffron-600 mb-2 block">
@@ -522,20 +582,36 @@ export default function LandingPage() {
             {workflowSteps.map((step, index) => (
               <div
                 key={step.step}
-                className="bg-white p-6 rounded-2xl border border-cream-200/90 shadow-soft relative"
+                className="bg-white p-6 sm:p-7 rounded-2xl border border-cream-200/90 shadow-soft relative flex h-full flex-col"
               >
-                <span className="font-mono text-3xl font-bold text-saffron-200 absolute top-4 right-5">
-                  {step.step}
-                </span>
-                <div className="w-8 h-8 rounded-lg bg-saffron-500 text-white font-bold flex items-center justify-center text-xs mb-4">
-                  {index + 1}
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="w-11 h-11 rounded-xl font-mono font-bold flex items-center justify-center text-sm bg-saffron-50 border border-saffron-200/80 text-saffron-600">
+                    {step.step}
+                  </div>
+
+                  <span className="badge badge-cream text-[11px] font-semibold">
+                    Step {index + 1} of {workflowSteps.length}
+                  </span>
                 </div>
-                <h3 className="font-display text-lg font-bold text-navy-900 mb-2">
+
+                <h3 className="font-display text-lg font-bold text-navy-900 mb-3">
                   {step.title}
                 </h3>
-                <p className="text-sm text-navy-600 leading-relaxed">
+
+                <p className="text-sm text-navy-600 leading-relaxed flex-1">
                   {step.desc}
                 </p>
+
+                <div className="mt-6 pt-4 border-t border-cream-200/80 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-saffron-500 shrink-0" />
+                  <span className="text-xs font-medium text-navy-500">
+                    {index === 0
+                      ? "Capture your trip details"
+                      : index === 1
+                        ? "Automate your calculations"
+                        : "Generate and share invoices"}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -551,16 +627,21 @@ export default function LandingPage() {
               Local-First Guarantee
             </span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mb-4 leading-snug">
-              Your transport rates, clients, and revenue stay exclusively on your device.
+              Your transport rates, clients, and revenue stay exclusively on
+              your device.
             </h2>
             <p className="text-navy-200 text-sm sm:text-base leading-relaxed mb-8">
-              Trippr stores all your database records inside your browser&apos;s IndexedDB. We have no external backend servers reading your data. Sync with Google Drive only if and when you choose.
+              Trippr stores all your database records inside your browser&apos;s
+              IndexedDB. We have no external backend servers reading your data.
+              Sync with Google Drive only if and when you choose.
             </p>
             <button
               onClick={handleGetStarted}
               className="btn-primary text-sm py-3 px-6 shadow-glow"
             >
-              <span>{isFullySetup ? "Open Trippr" : "Start Using Trippr for Free"}</span>
+              <span>
+                {isFullySetup ? "Open Trippr" : "Start Using Trippr for Free"}
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -586,10 +667,16 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6 text-xs text-navy-500 font-medium">
-            <Link href="/privacy" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/terms"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Terms of Service
             </Link>
             <a
