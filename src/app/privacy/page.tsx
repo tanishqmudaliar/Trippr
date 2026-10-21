@@ -20,8 +20,29 @@ import {
   X,
   Scale,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+async function getLatestTag(): Promise<string> {
+  const response = await fetch(
+    "https://api.github.com/repos/tanishqmudaliar/Trippr/releases/latest",
+    { cache: "no-store" },
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch latest tag");
+
+  const data: { tag_name: string } = await response.json();
+  return data.tag_name;
+}
 
 export default function PrivacyPolicyPage() {
+  const [latestTag, setLatestTag] = useState("");
+
+  useEffect(() => {
+    getLatestTag()
+      .then(setLatestTag)
+      .catch(() => setLatestTag(""));
+  }, []);
+
   const sections = [
     { id: "intro", number: "1", title: "Introduction" },
     { id: "storage", number: "2", title: "Data Storage" },
@@ -97,7 +118,7 @@ export default function PrivacyPolicyPage() {
                 Zero Cloud Tracking
               </span>
               <span className="badge badge-saffron text-xs font-semibold py-1 px-3">
-                v1.5.0
+                {latestTag}
               </span>
             </div>
 
@@ -222,10 +243,10 @@ export default function PrivacyPolicyPage() {
                   Introduction & Core Principle
                 </h2>
                 <p className="text-navy-700 leading-relaxed text-sm sm:text-base mb-4">
-                  Trippr (&quot;we&quot;, &quot;our&quot;, or &quot;the app&quot;)
-                  is an offline-first duty slip and GST tax invoice management
-                  solution built for taxi operators, logistics managers, and
-                  independent fleet contractors.
+                  Trippr (&quot;we&quot;, &quot;our&quot;, or &quot;the
+                  app&quot;) is an offline-first duty slip and GST tax invoice
+                  management solution built for taxi operators, logistics
+                  managers, and independent fleet contractors.
                 </p>
                 <p className="text-navy-700 leading-relaxed text-sm sm:text-base">
                   Traditional web platforms collect customer lists, trip logs,
@@ -291,11 +312,15 @@ export default function PrivacyPolicyPage() {
                         </li>
                         <li className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-saffron-500" />
-                          <span>Client pricing schedules and vehicle records</span>
+                          <span>
+                            Client pricing schedules and vehicle records
+                          </span>
                         </li>
                         <li className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-saffron-500" />
-                          <span>Company logo & signature images (IndexedDB)</span>
+                          <span>
+                            Company logo & signature images (IndexedDB)
+                          </span>
                         </li>
                       </ul>
                     </div>
@@ -323,7 +348,9 @@ export default function PrivacyPolicyPage() {
                       <ul className="space-y-2 text-xs sm:text-sm text-navy-600">
                         <li className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                          <span>Direct synchronization to your Google Drive</span>
+                          <span>
+                            Direct synchronization to your Google Drive
+                          </span>
                         </li>
                         <li className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
@@ -373,11 +400,10 @@ export default function PrivacyPolicyPage() {
                       </code>
                     </div>
                     <p className="text-navy-700 text-xs sm:text-sm leading-relaxed mt-1">
-                      Grants access <strong>only</strong> to an isolated,
-                      hidden application folder in your own Google Drive.
-                      Trippr cannot view, read, list, alter, or delete any of
-                      your personal documents, photos, sheets, or other Drive
-                      files.
+                      Grants access <strong>only</strong> to an isolated, hidden
+                      application folder in your own Google Drive. Trippr cannot
+                      view, read, list, alter, or delete any of your personal
+                      documents, photos, sheets, or other Drive files.
                     </p>
                   </div>
 
@@ -453,7 +479,9 @@ export default function PrivacyPolicyPage() {
                     </div>
                     <ul className="space-y-2 text-xs sm:text-sm text-navy-700">
                       <li>• No tracking of your client lists or invoices</li>
-                      <li>• No advertising identifiers or browser fingerprints</li>
+                      <li>
+                        • No advertising identifiers or browser fingerprints
+                      </li>
                       <li>• No GPS location tracking of your vehicles</li>
                       <li>• No banking, payment card, or UPI credentials</li>
                       <li>• No reselling of contact or customer information</li>
@@ -534,9 +562,9 @@ export default function PrivacyPolicyPage() {
                         Settings
                       </Link>{" "}
                       and click <strong>&quot;Reset Everything&quot;</strong>.
-                      This immediately purges all duty entries, invoices,
-                      stored clients, vehicles, branding assets from IndexedDB,
-                      and clears authentication tokens.
+                      This immediately purges all duty entries, invoices, stored
+                      clients, vehicles, branding assets from IndexedDB, and
+                      clears authentication tokens.
                     </p>
                   </div>
 
@@ -574,8 +602,8 @@ export default function PrivacyPolicyPage() {
                     Trippr includes built-in AES-GCM encryption for manual data
                     backups. When exporting a backup JSON file, you can specify
                     a private encryption passphrase. The file is encrypted
-                    locally in your browser using the native Web Cryptography API
-                    prior to download.
+                    locally in your browser using the native Web Cryptography
+                    API prior to download.
                   </p>
                 </div>
                 <p className="text-navy-600 text-xs sm:text-sm leading-relaxed">
@@ -598,12 +626,11 @@ export default function PrivacyPolicyPage() {
                   Changes to This Privacy Policy
                 </h2>
                 <p className="text-navy-700 leading-relaxed text-sm sm:text-base">
-                  We may occasionally update this Privacy Policy to reflect
-                  new features, such as additional local export formats or
-                  browser API updates. Any revisions will be published
-                  transparently on this page with an updated &quot;Last
-                  updated&quot; timestamp and recorded in our open-source
-                  CHANGELOG.
+                  We may occasionally update this Privacy Policy to reflect new
+                  features, such as additional local export formats or browser
+                  API updates. Any revisions will be published transparently on
+                  this page with an updated &quot;Last updated&quot; timestamp
+                  and recorded in our open-source CHANGELOG.
                 </p>
               </div>
             </div>
@@ -657,11 +684,17 @@ export default function PrivacyPolicyPage() {
               Home
             </Link>
             <span>•</span>
-            <Link href="/terms" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/terms"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Terms of Service
             </Link>
             <span>•</span>
-            <Link href="/dashboard" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/dashboard"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Dashboard
             </Link>
           </div>

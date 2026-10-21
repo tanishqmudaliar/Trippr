@@ -18,8 +18,29 @@ import {
   HardDrive,
   BadgeDollarSign,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+async function getLatestTag(): Promise<string> {
+  const response = await fetch(
+    "https://api.github.com/repos/tanishqmudaliar/Trippr/releases/latest",
+    { cache: "no-store" },
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch latest tag");
+
+  const data: { tag_name: string } = await response.json();
+  return data.tag_name;
+}
 
 export default function TermsOfServicePage() {
+  const [latestTag, setLatestTag] = useState("");
+
+  useEffect(() => {
+    getLatestTag()
+      .then(setLatestTag)
+      .catch(() => setLatestTag(""));
+  }, []);
+
   const sections = [
     { id: "acceptance", number: "1", title: "Acceptance" },
     { id: "service", number: "2", title: "Service Description" },
@@ -97,7 +118,7 @@ export default function TermsOfServicePage() {
                 Free for Commercial Use
               </span>
               <span className="badge badge-navy text-xs font-semibold py-1 px-3">
-                v1.5.0
+                {latestTag}
               </span>
             </div>
 
@@ -287,7 +308,10 @@ export default function TermsOfServicePage() {
           </section>
 
           {/* Section 3: User Responsibilities */}
-          <section id="responsibilities" className="p-6 sm:p-8 lg:p-10 scroll-mt-20">
+          <section
+            id="responsibilities"
+            className="p-6 sm:p-8 lg:p-10 scroll-mt-20"
+          >
             <div className="flex items-start gap-4 mb-4">
               <div className="w-10 h-10 rounded-xl bg-saffron-500 text-white flex items-center justify-center shrink-0 font-bold text-sm shadow-soft">
                 3
@@ -368,9 +392,9 @@ export default function TermsOfServicePage() {
                     <span>Your Data Remains Exclusively Yours</span>
                   </div>
                   <p className="text-navy-700 text-xs sm:text-sm leading-relaxed mb-3">
-                    We assert no intellectual property rights, licensing
-                    claims, or ownership over any trip records, driver logs,
-                    customer rosters, or invoices created in the application.
+                    We assert no intellectual property rights, licensing claims,
+                    or ownership over any trip records, driver logs, customer
+                    rosters, or invoices created in the application.
                   </p>
                   <Link
                     href="/privacy"
@@ -398,8 +422,7 @@ export default function TermsOfServicePage() {
                   Enabling cloud sync authorizes Trippr to store snapshot
                   checkpoints within your personal Google Drive&apos;s hidden
                   application folder. Your relationship with Google regarding
-                  storage quotas, uptime, and account credentials is governed
-                  by{" "}
+                  storage quotas, uptime, and account credentials is governed by{" "}
                   <a
                     href="https://policies.google.com/terms"
                     target="_blank"
@@ -436,8 +459,8 @@ export default function TermsOfServicePage() {
                     <span>Provided &quot;As-Is&quot; Without Warranty</span>
                   </div>
                   <p className="text-navy-700 text-xs sm:text-sm leading-relaxed">
-                    Trippr is provided free of charge on an &quot;AS IS&quot; and
-                    &quot;AS AVAILABLE&quot; basis without warranties of any
+                    Trippr is provided free of charge on an &quot;AS IS&quot;
+                    and &quot;AS AVAILABLE&quot; basis without warranties of any
                     kind, whether express, implied, or statutory, including but
                     not limited to warranties of merchantability, fitness for a
                     particular purpose, non-infringement, or accuracy of
@@ -463,16 +486,19 @@ export default function TermsOfServicePage() {
                   shall Trippr, its developers, or contributors be held liable
                   for any direct, indirect, incidental, special, exemplary, or
                   consequential damages (including, but not limited to, loss of
-                  profits, business interruption, tax penalties, client disputes,
-                  or loss of data) arising out of or in connection with the use
-                  or inability to use this software.
+                  profits, business interruption, tax penalties, client
+                  disputes, or loss of data) arising out of or in connection
+                  with the use or inability to use this software.
                 </p>
               </div>
             </div>
           </section>
 
           {/* Section 8: Modifications */}
-          <section id="modifications" className="p-6 sm:p-8 lg:p-10 scroll-mt-20">
+          <section
+            id="modifications"
+            className="p-6 sm:p-8 lg:p-10 scroll-mt-20"
+          >
             <div className="flex items-start gap-4 mb-4">
               <div className="w-10 h-10 rounded-xl bg-saffron-500 text-white flex items-center justify-center shrink-0 font-bold text-sm shadow-soft">
                 8
@@ -514,11 +540,11 @@ export default function TermsOfServicePage() {
                   <div className="flex items-start gap-3">
                     <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <p className="text-navy-700 text-xs sm:text-sm leading-relaxed">
-                      <strong>Brand Protection:</strong> The name &quot;Trippr&quot;,
-                      visual logos, slogans, and site branding remain the
-                      intellectual property of the project creator. You may not
-                      repackage or resell the application under the Trippr brand
-                      name.
+                      <strong>Brand Protection:</strong> The name
+                      &quot;Trippr&quot;, visual logos, slogans, and site
+                      branding remain the intellectual property of the project
+                      creator. You may not repackage or resell the application
+                      under the Trippr brand name.
                     </p>
                   </div>
                 </div>
@@ -540,11 +566,12 @@ export default function TermsOfServicePage() {
                   <Globe className="w-5 h-5 text-saffron-600 shrink-0 mt-0.5" />
                   <p className="text-navy-700 leading-relaxed text-xs sm:text-sm">
                     These Terms of Service shall be governed by, construed, and
-                    enforced in accordance with the laws of <strong>India</strong>,
-                    without regard to conflict of law principles. Any dispute
-                    arising out of or in connection with these terms shall be
-                    subject to the exclusive jurisdiction of the competent courts
-                    located in <strong>Mumbai, Maharashtra, India</strong>.
+                    enforced in accordance with the laws of{" "}
+                    <strong>India</strong>, without regard to conflict of law
+                    principles. Any dispute arising out of or in connection with
+                    these terms shall be subject to the exclusive jurisdiction
+                    of the competent courts located in{" "}
+                    <strong>Mumbai, Maharashtra, India</strong>.
                   </p>
                 </div>
               </div>
@@ -598,11 +625,17 @@ export default function TermsOfServicePage() {
               Home
             </Link>
             <span>•</span>
-            <Link href="/privacy" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Privacy Policy
             </Link>
             <span>•</span>
-            <Link href="/dashboard" className="hover:text-saffron-600 transition-colors">
+            <Link
+              href="/dashboard"
+              className="hover:text-saffron-600 transition-colors"
+            >
               Dashboard
             </Link>
           </div>
