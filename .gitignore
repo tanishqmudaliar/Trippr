@@ -39,3 +39,7 @@ next-env.d.ts
 *.bak
 *backup*.json
 migration-*.json
+
+# Release artifacts
+release-notes.md
+release-title.txt

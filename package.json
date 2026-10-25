@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npx --yes tsx scripts/test-indian-vehicles.ts && npx --yes tsx scripts/test-backfill.ts && npx --yes tsx scripts/test-invoice-calculations.ts"
   },
   "keywords": [],
   "author": "",
