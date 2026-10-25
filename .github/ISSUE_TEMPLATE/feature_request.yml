@@ -1,0 +1,31 @@
+name: Feature Request
+description: Suggest an idea or enhancement for Trippr
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for a feature or UI improvement in future releases? Let us know below!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the pain point or problem is.
+      placeholder: "I'm always frustrated when [...]"
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've considered.
+    validations:
+      required: false
