@@ -12,15 +12,21 @@ permissions:
   pull-requests: write
 
 jobs:
-  enable-auto-merge:
-    if: >-
-      github.event.pull_request.user.login == 'dependabot[bot]' &&
-      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
-      contains(github.event.pull_request.head.ref, '-patch')
+  auto-merge-patch:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Enable squash auto-merge
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Auto-approve and enable squash auto-merge for patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || contains(github.event.pull_request.head.ref, '-patch')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --auto --squash
+        run: |
+          gh pr review --approve "$PR_URL" --body "Auto-approved patch dependency update. Awaiting green CI verification before merging."
+          gh pr merge "$PR_URL" --auto --squash
