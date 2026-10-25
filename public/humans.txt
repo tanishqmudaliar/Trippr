@@ -1,0 +1,13 @@
+/* TEAM */
+  Developer: Tanishq Mudaliar
+  Contact: https://github.com/tanishqmudaliar
+  Location: India
+
+/* SITE */
+  Standards: HTML5, CSS3, ESNext, TypeScript
+  Frameworks: Next.js 16 (App Router, Turbopack), React 19
+  Styling: Tailwind CSS 4
+  State Management: Zustand
+  Icons & Motion: Lucide React, Framer Motion, GSAP
+  Spreadsheet & PDF: read-excel-file, write-excel-file, @react-pdf/renderer
+  Software: Trippr — Invoice & Duty Management System

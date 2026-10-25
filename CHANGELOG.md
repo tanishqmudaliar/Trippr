@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic Release Version Tag Display**: Integrated GitHub Releases API tag resolution into the Landing page, Privacy Policy (`/privacy`), and Terms of Service (`/terms`) to dynamically display the active version tag badge.
+
 ## [1.5.2] - 2026-10-21
 
 ### Added
@@ -40,8 +44,11 @@ All notable changes to this project will be documented in this file. The format 
   - Matched Recent Duty Entries cards to Recent Invoices visual tokens (`rounded-2xl`, status badges, client affiliation rows, and structured layout).
   - Applied the dark elevated enterprise pipeline gradient (`bg-linear-to-br from-navy-950 via-navy-900 to-navy-950`) with saffron accents to both Dashboard Billed Revenue hero card and Create Invoice Summary breakdown card.
   - Simplified Manage Invoices by pruning obsolete filter toggles and redundant badges.
+- **Environment & Secret Management**:
+  - Standardized on `.env.local` for local secrets and `.env.example` as configuration template, removing redundant duplicate `.env`.
 - **Documentation Standards**:
   - Updated `README.md` to reflect unified card tokens, fleet integration, and Indian jurisdiction badges.
+  - Updated `CHANGELOG.md` adhering to Keep a Changelog standards.
 
 ### Fixed
 
@@ -78,71 +85,77 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Fixed
 
-- Overlapping company logo and placeholder upload regions in onboarding wizard across mobile and desktop viewports.
-- Horizontal viewport overflow in dashboard recent invoices section on narrow screens.
-- Action button width and alignment disparities on mobile screens for invoice and statistics pages.
+- **Onboarding Wizard Asset Upload Overlap**: Resolved overlapping company logo and placeholder upload regions in onboarding wizard across mobile and desktop viewports.
+- **Dashboard Recent Invoices Overflow**: Eliminated horizontal viewport overflow in dashboard recent invoices section on narrow screens.
+- **Mobile Action Button Alignment**: Fixed action button width and alignment disparities on mobile screens for invoice and statistics pages.
 
 ### Security
 
-- Replaced vulnerable legacy `xlsx` spreadsheet parsing package with modern, secure `read-excel-file` and `write-excel-file` libraries.
-- Upgraded core dependencies including Next.js 16.3.8, React 19.3.0, TypeScript 7.0.2, Tailwind CSS 4.3.3, Framer Motion 13.4.4, Lucide React 1.48.0, and PostCSS 8.5.28.
+- **Spreadsheet Parser Vulnerability Mitigation**: Replaced vulnerable legacy `xlsx` spreadsheet parsing package with modern, secure `read-excel-file` and `write-excel-file` libraries.
+- **Core Dependency Upgrades**: Upgraded core dependencies including Next.js 16.3.8, React 19.3.0, TypeScript 7.0.2, Tailwind CSS 4.3.3, Framer Motion 13.4.4, Lucide React 1.48.0, and PostCSS 8.5.28.
 
 ## [1.4.0] - 2026-08-02
 
 ### Added
 
-- `GoogleDriveAuthError` class for clearer, typed Google Drive sync error handling
+- **Typed Google Drive Auth Error**: Introduced `GoogleDriveAuthError` class to distinguish expired or invalid OAuth sessions (HTTP 401) from transient network errors, preventing authentication failures from being incorrectly treated as empty cloud storage.
+- **Interactive Sync Recovery**: Added an interactive retry button on the settings page (`Connection issue - retry`) enabling manual re-checks when sync status queries encounter connectivity issues.
+- **Project Changelog**: Added `CHANGELOG.md` following Keep a Changelog standards to document historical updates, versioning, and release notes.
 
 ### Changed
 
-- Improved session management during Google Drive sync
+- **Cloud Sync Session Management**: Refactored `getSyncStatus` and sync operations to handle session expiration gracefully via `disconnectDueToAuthError`, ensuring clean state handling across download, upload, and data clearing workflows.
 
 ## [1.3.0] - 2026-07-14
 
-### Fixed
-
-- Google auth connection is now retained on silent refresh failure, preserving `localStorage` state instead of forcing re-auth
-
 ### Changed
 
-- Updated README with new Architecture and Configuration sections
+- **Architecture & Configuration Documentation**: Expanded `README.md` with a detailed architecture diagram, component layer responsibilities, and comprehensive environment variable configuration guide.
+
+### Fixed
+
+- **Persistent Google Auth State**: Retained Google authentication credentials in `localStorage` upon silent token refresh failures, preventing accidental session clearing and unnecessary re-authentication prompts.
 
 ## [1.2.0] - 2026-02-07
 
 ### Added
 
-- `.env.example` for Google Client ID configuration
-- Versioning support for Google Drive sync file management
+- **Google Drive Sync Versioning**: Introduced timestamped sync file management in Google Drive appDataFolder, including automated discovery of latest backups and cleanup of older snapshots.
+- **Sync Timestamp Tracking**: Added `lastSyncedAt` and `lastUpdatedAt` timestamps to store backup state, alongside localized Indian format date/time display utilities (`formatSyncTime`).
+- **Environment Configuration Template**: Added `.env.example` defining `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to streamline local environment setup.
 
 ### Changed
 
-- Enhanced Terms of Service page layout and content
-- Removed legacy `InvoiceConfig` type; updated `Invoice` interface
+- **Invoice Type Definitions**: Removed deprecated legacy `InvoiceConfig` type in favor of the modernized `Invoice` interface for consistent data modeling.
+- **Terms of Service Page**: Enhanced the `/terms` legal page with structured layout, card styling, and improved content presentation.
 
 ## [1.1.0] - 2026-02-02
 
 ### Added
 
-- Cancelled entry tracking with remarks, excluded from invoices and statistics
-- IndexedDB storage for logo and signature images, with `localStorage` fallback
+- **Cancelled Entry Tracking**: Added cancellation status support with mandatory remarks, zeroing out billable kilometers and hours while automatically excluding cancelled entries from invoices and statistics.
+- **IndexedDB Asset Storage**: Implemented dedicated IndexedDB storage (`assetStorage.ts`) for company logo and signature image assets, with graceful fallback to `localStorage`.
 
 ### Changed
 
-- Refactored invoice entry display into a reusable `DutyEntryCard` component
+- **Reusable Duty Entry Component**: Extracted duty entry presentation logic into a centralized `DutyEntryCard` component for unified styling across entries, invoices, and dashboard views.
+- **Duty Duration Calculations**: Enhanced time computation logic to correctly handle single-day overnight wrap-around shifts crossing midnight and multi-day duty date ranges.
 
 ## [1.0.0] - 2026-01-25
 
 ### Added
 
-- Initial release: offline-first duty and invoice management app (Next.js + Zustand)
-- Custom 404 page with animations and navigation options
-- Duration formatting in `InvoicePDFDocument`
+- **Offline-First Management Platform**: Initial production release of Trippr, featuring offline-first duty logging, client management, vehicle tracking, and automated invoice calculation built with Next.js and Zustand.
+- **Invoice PDF Generator**: Integrated client-side PDF document generation via `@react-pdf/renderer`, featuring custom branding, itemized tax and duty breakdown, and formatted duration metrics.
+- **Custom 404 Error Page**: Added animated Not Found page (`/not-found`) with Framer Motion animations and quick navigation links.
+- **Fleet & Client Configuration**: Configurable client rate profiles (base fare, extra km rate, extra hour rate) and multi-vehicle fleet support with default selection.
 
 ### Changed
 
-- Updated README with technology badges, overview, installation steps, and project structure
+- **Documentation Overhaul**: Published comprehensive `README.md` with technology badges, project structure, setup instructions, and calculation specifications.
 
-[Unreleased]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/tanishqmudaliar/Trippr/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/tanishqmudaliar/Trippr/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/tanishqmudaliar/Trippr/compare/v1.3.0...v1.4.0

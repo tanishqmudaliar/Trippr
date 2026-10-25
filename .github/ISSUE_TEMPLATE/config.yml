@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report Security Vulnerability
+    url: https://github.com/tanishqmudaliar/Trippr/security/advisories/new
+    about: Please report security vulnerabilities privately through GitHub Security Advisories.
+  - name: Ask Questions or General Feedback
+    url: https://github.com/tanishqmudaliar/Trippr/discussions
+    about: Ask questions, share use-cases, and connect with the developer.
