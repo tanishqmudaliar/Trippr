@@ -81,7 +81,7 @@ for (const tag of tags) {
   );
 
   // Assert no trailing link reference definitions leaked into release notes
-  assert(!extractedBody.includes('https://github.com/tanishqmudaliar/Trippr/compare/'), `Link reference leaked into ${tag} body!`);
+  assert(!/^\[.+\]:\s*http/m.test(extractedBody), `Link reference leaked into ${tag} body!`);
 
   console.log(`✔ ${tag}: Title and Body match GitHub with 100% exact equality (${ghBody.length} chars).`);
 }

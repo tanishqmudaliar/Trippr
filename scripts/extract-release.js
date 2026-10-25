@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Extracts the release body and auto-generates a title from CHANGELOG.md for a given tag/version.
+ * Extracts the release body and generates a consistent title from CHANGELOG.md for a given tag/version.
  * Usage: node scripts/extract-release.js [tag]
  * Example: node scripts/extract-release.js v1.5.2
  */
@@ -9,8 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const tag = process.argv[2] || process.env.GITHUB_REF_NAME;
-if (!tag) {
+const rawTag = process.argv[2] || process.env.GITHUB_REF_NAME;
+if (!rawTag) {
   console.error("Error: No tag specified. Pass tag as argument (e.g. node scripts/extract-release.js v1.5.2)");
   process.exit(1);
 }
@@ -22,8 +22,14 @@ if (!fs.existsSync(changelogPath)) {
 }
 
 const content = fs.readFileSync(changelogPath, 'utf8');
-const version = tag.replace(/^v/, '');
-const normalizedTag = tag.startsWith('v') ? tag : `v${tag}`;
+const version = rawTag.replace(/^v/, '');
+const normalizedTag = rawTag.startsWith('v') ? rawTag : `v${rawTag}`;
+
+// Validate version string format strictly
+if (!/^[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?$/.test(version)) {
+  console.error(`Error: Invalid version format: "${version}". Expected semantic version.`);
+  process.exit(1);
+}
 
 // Known curated release titles for existing releases to ensure 100% synchronization with GitHub Releases
 const KNOWN_RELEASE_TITLES = {
@@ -37,66 +43,42 @@ const KNOWN_RELEASE_TITLES = {
   '1.0.0': 'Offline-First Management Platform & Invoice PDF Generation',
 };
 
-// Match header: ## [1.5.2] or ## [1.5.2] - 2026-10-21 or ## [1.5.2] - 2026-10-21 - Custom Subtitle
-const headerRegex = new RegExp(
-  `^##\\s*\\[${version.replace(/\./g, '\\.')}\\](?:\\s*-\\s*\\d{4}-\\d{2}-\\d{2})?(?:\\s*-\\s*(.+))?$`,
-  'mi'
-);
-
-const match = headerRegex.exec(content);
+// Locate target header using exact line prefix search (eliminates dynamic regex injection)
+const lines = content.split(/\r?\n/);
+const headerPrefix = `## [${version}]`;
+const headerIndex = lines.findIndex(line => line.trim().startsWith(headerPrefix));
 
 let body = '';
 let titleDesc = '';
 
-if (match) {
-  const startIndex = match.index + match[0].length;
-  const rest = content.slice(startIndex);
-  const nextSectionRegex = /^##\s+\[|^\[[a-zA-Z0-9._-]+\]:/m;
-  const nextMatch = nextSectionRegex.exec(rest);
-  const rawBody = nextMatch ? rest.slice(0, nextMatch.index) : rest;
-  body = rawBody.trim();
+if (headerIndex !== -1) {
+  const headerLine = lines[headerIndex].trim();
+  const headerParts = headerLine.split(' - ');
+  if (headerParts.length >= 3) {
+    titleDesc = headerParts.slice(2).join(' - ').trim();
+  }
+
+  // Collect subsequent body lines until next section header or markdown link definition
+  const bodyLines = [];
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s+\[/.test(line) || /^\[[a-zA-Z0-9._-]+\]:/.test(line)) {
+      break;
+    }
+    bodyLines.push(line);
+  }
+  body = bodyLines.join('\n').trim();
 
   // 1. If known curated title exists, use it to preserve 100% release consistency
   if (KNOWN_RELEASE_TITLES[version]) {
     titleDesc = KNOWN_RELEASE_TITLES[version];
-  } else if (match[1] && match[1].trim()) {
-    // 2. If a custom subtitle exists in header line (e.g. ## [1.5.2] - 2026-10-21 - Subtitle)
-    titleDesc = match[1].trim();
-  } else {
-    // 3. Auto-generate title by analyzing sections and extracting prominent changes
+  } else if (!titleDesc) {
     titleDesc = autoGenerateTitleFromBody(body);
   }
 } else {
   console.warn(`Warning: Could not find section for version [${version}] in CHANGELOG.md. Using fallback.`);
   titleDesc = 'Production Release';
   body = `Release ${normalizedTag}`;
-}
-
-function autoGenerateTitleFromBody(releaseBody) {
-  // Extract bullet points across sections
-  const boldMatches = [...releaseBody.matchAll(/^-\s*\*\*([^*:\n]+)\*\*/gm)].map(m => m[1].trim());
-
-  if (boldMatches.length === 0) {
-    const sections = [...releaseBody.matchAll(/^###\s+([A-Za-z]+)/gm)].map(m => m[1].trim());
-    return sections.length > 0 ? `${sections.join(', ')} Updates` : 'Production Release';
-  }
-
-  if (boldMatches.length === 1) {
-    return boldMatches[0];
-  }
-
-  if (boldMatches.length === 2) {
-    return `${boldMatches[0]} & ${boldMatches[1]}`;
-  }
-
-  // Pick candidate with 3 items if concise, else 2 items
-  const candidate3 = `${boldMatches[0]}, ${boldMatches[1]} & ${boldMatches[2]}`;
-  if (candidate3.length <= 80) {
-    return candidate3;
-  }
-
-  const candidate2 = `${boldMatches[0]} & ${boldMatches[1]}`;
-  return candidate2.length <= 80 ? candidate2 : boldMatches[0];
 }
 
 const finalTitle = `${normalizedTag} — ${titleDesc}`;
@@ -112,3 +94,31 @@ if (process.env.GITHUB_OUTPUT) {
 
 console.log(`Generated Title: ${finalTitle}`);
 console.log(`Release notes written to release-notes.md (${body.length} characters)`);
+
+/**
+ * Intelligent title generation from body content for future releases
+ */
+function autoGenerateTitleFromBody(markdownBody) {
+  const boldMatches = [...markdownBody.matchAll(/^-\s*\*\*([^*:\n]+)\*\*/gm)].map(m => m[1].trim());
+
+  if (boldMatches.length === 1) {
+    return boldMatches[0];
+  }
+  if (boldMatches.length === 2) {
+    return `${boldMatches[0]} & ${boldMatches[1]}`;
+  }
+  if (boldMatches.length >= 3) {
+    const candidate3 = `${boldMatches[0]}, ${boldMatches[1]} & ${boldMatches[2]}`;
+    if (candidate3.length <= 80) {
+      return candidate3;
+    }
+    const candidate2 = `${boldMatches[0]} & ${boldMatches[1]}`;
+    return candidate2.length <= 80 ? candidate2 : boldMatches[0];
+  }
+
+  const sections = [...markdownBody.matchAll(/^###\s+([A-Za-z]+)/gm)].map(m => m[1].trim());
+  if (sections.length > 0) {
+    return `${sections.join(', ')} Updates`;
+  }
+  return 'Production Release';
+}
