@@ -15,26 +15,26 @@
   "license": "ISC",
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "date-fns": "^4.4.0",
     "framer-motion": "^13.4.4",
     "gsap": "^3.15.0",
     "lucide-react": "^1.64.0",
-    "next": "^16.4.1",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "read-excel-file": "^9.3.10",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "read-excel-file": "^9.3.14",
     "recharts": "^3.10.1",
     "typescript": "^7.0.2",
     "write-excel-file": "^4.1.1",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react-dom": "^19.3.0",
-    "autoprefixer": "^10.6.1",
-    "postcss": "^8.5.28",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
     "tailwindcss": "^4.1.18"
   }
 }
