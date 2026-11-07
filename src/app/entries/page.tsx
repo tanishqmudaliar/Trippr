@@ -45,6 +45,7 @@ import readXlsxFile from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import DutyEntryCard from "@/components/DutyEntryCard";
 import { ClientSelector } from "@/components/ClientSelector";
+import Pagination from "@/components/Pagination";
 
 type EntryMode = "select" | "manual" | "upload";
 type DateMode = "single" | "multi";
@@ -1230,6 +1231,33 @@ export default function EntriesPage() {
     );
   }, [entries, filterClientId, searchQuery]);
 
+  // Pagination state (maximum 25 records per page)
+  const ITEMS_PER_PAGE = 25;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 when search query or client filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterClientId]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredEntries.length / ITEMS_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  // Auto-adjust page if entries are deleted or count drops
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedEntries = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredEntries.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredEntries, safeCurrentPage]);
+
   const invoicedEntryIds = useMemo(() => {
     return new Set(invoices.flatMap((inv) => inv.entryIds));
   }, [invoices]);
@@ -1533,7 +1561,7 @@ export default function EntriesPage() {
               Total Duration
             </span>
             <span
-              className="font-mono text-base sm:text-lg lg:text-xl font-bold text-navy-950 break-words leading-tight block"
+              className="font-mono text-base sm:text-lg lg:text-xl font-bold text-navy-950 wrap-break-word leading-tight block"
               title={formatDurationWithUnits(filteredStats.hours)}
             >
               {formatDurationWithUnits(filteredStats.hours)}
@@ -1639,26 +1667,37 @@ export default function EntriesPage() {
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredEntries.map((entry, index) => (
-                <DutyEntryCard
-                  key={entry.id}
-                  entry={entry}
-                  clientName={getClientName(entry.clientId)}
-                  showClient={true}
-                  showActions={true}
-                  showCheckbox={false}
-                  onEdit={() => handleEdit(entry)}
-                  onDelete={() => {
-                    setDeleteTargetId(entry.id);
-                    setShowDeleteConfirm(true);
-                  }}
-                  animationDelay={index * 0.03}
-                  variant="default"
-                  timeFormat={timeFormat}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-3">
+                {paginatedEntries.map((entry, index) => (
+                  <DutyEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    clientName={getClientName(entry.clientId)}
+                    showClient={true}
+                    showActions={true}
+                    showCheckbox={false}
+                    onEdit={() => handleEdit(entry)}
+                    onDelete={() => {
+                      setDeleteTargetId(entry.id);
+                      setShowDeleteConfirm(true);
+                    }}
+                    animationDelay={index * 0.03}
+                    variant="default"
+                    timeFormat={timeFormat}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalItems={filteredEntries.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                itemLabel="entries"
+              />
+            </>
           )}
         </div>
       </motion.div>

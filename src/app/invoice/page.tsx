@@ -48,6 +48,7 @@ import { getAssetWithFallback } from "@/lib/assetStorage";
 import DutyEntryCard from "@/components/DutyEntryCard";
 import { FleetVehicleSelector } from "@/components/FleetVehicleSelector";
 import { ClientSelector } from "@/components/ClientSelector";
+import Pagination from "@/components/Pagination";
 import { detectIndianJurisdiction } from "@/lib/indianVehicles";
 
 type TabType = "create" | "edit";
@@ -786,6 +787,33 @@ function EditInvoiceTab() {
     });
   }, [invoices, searchQuery, filterClientId, clients, vehicles]);
 
+  // Pagination state (maximum 25 records per page)
+  const ITEMS_PER_PAGE = 25;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 when search query or client filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterClientId]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  // Auto-adjust page if invoices are deleted or count drops
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedInvoices = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredInvoices.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredInvoices, safeCurrentPage]);
+
   const totalFilteredRevenue = useMemo(
     () => filteredInvoices.reduce((sum, inv) => sum + inv.roundedTotal, 0),
     [filteredInvoices],
@@ -937,210 +965,227 @@ function EditInvoiceTab() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredInvoices.map((invoice) => {
-              const client = clients.find((c) => c.id === invoice.clientId);
-              const isSelected = selectedInvoiceId === invoice.id;
-              const invoiceEntries = entries.filter((e) =>
-                invoice.entryIds.includes(e.id),
-              );
-              const totalDays = invoiceEntries.reduce(
-                (sum, e) => sum + getEntryDayCount(e),
-                0,
-              );
-              const totalKms = invoiceEntries.reduce(
-                (sum, e) => sum + (e.cancelled ? 0 : e.totalKms),
-                0,
-              );
-              const totalHours = invoiceEntries.reduce(
-                (sum, e) => sum + (e.cancelled ? 0 : e.totalTime),
-                0,
-              );
-              const totalExtraKms = invoiceEntries.reduce(
-                (sum, e) => sum + (e.cancelled ? 0 : e.extraKms),
-                0,
-              );
-              const invoiceTotals = client
-                ? calculateInvoiceTotals(invoiceEntries, client)
-                : null;
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedInvoices.map((invoice) => {
+                const client = clients.find((c) => c.id === invoice.clientId);
+                const isSelected = selectedInvoiceId === invoice.id;
+                const invoiceEntries = entries.filter((e) =>
+                  invoice.entryIds.includes(e.id),
+                );
+                const totalDays = invoiceEntries.reduce(
+                  (sum, e) => sum + getEntryDayCount(e),
+                  0,
+                );
+                const totalKms = invoiceEntries.reduce(
+                  (sum, e) => sum + (e.cancelled ? 0 : e.totalKms),
+                  0,
+                );
+                const totalHours = invoiceEntries.reduce(
+                  (sum, e) => sum + (e.cancelled ? 0 : e.totalTime),
+                  0,
+                );
+                const totalExtraKms = invoiceEntries.reduce(
+                  (sum, e) => sum + (e.cancelled ? 0 : e.extraKms),
+                  0,
+                );
+                const invoiceTotals = client
+                  ? calculateInvoiceTotals(invoiceEntries, client)
+                  : null;
 
-              const resolvedPlate = getInvoiceVehicleNumber(invoice, vehicles);
-              const isLinkedToFleet = Boolean(
-                invoice.vehicleId &&
-                vehicles.some((v) => v.id === invoice.vehicleId),
-              );
-              const linkedVehicle = invoice.vehicleId
-                ? vehicles.find((v) => v.id === invoice.vehicleId)
-                : undefined;
-              const plateJurisdiction = detectIndianJurisdiction(resolvedPlate);
+                const resolvedPlate = getInvoiceVehicleNumber(
+                  invoice,
+                  vehicles,
+                );
+                const isLinkedToFleet = Boolean(
+                  invoice.vehicleId &&
+                  vehicles.some((v) => v.id === invoice.vehicleId),
+                );
+                const linkedVehicle = invoice.vehicleId
+                  ? vehicles.find((v) => v.id === invoice.vehicleId)
+                  : undefined;
+                const plateJurisdiction =
+                  detectIndianJurisdiction(resolvedPlate);
 
-              return (
-                <motion.div
-                  key={invoice.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 sm:p-5 rounded-2xl border transition-all space-y-3.5 ${
-                    isSelected
-                      ? "border-saffron-500 bg-saffron-50/70 shadow-soft ring-2 ring-saffron-300/60"
-                      : "border-cream-200/90 bg-white hover:border-saffron-300 shadow-2xs hover:shadow-soft group"
-                  }`}
-                >
-                  {/* Row 1: Invoice #, Date, Plate, Net Total */}
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
-                        <FileText className="w-5 h-5 text-navy-600 group-hover:text-saffron-600 transition-colors" />
-                      </div>
-                      <div className="min-w-0 flex-1 pr-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-display text-base font-bold text-navy-950">
-                            #{invoice.invoiceNumber}
-                          </h3>
-                          <span className="text-xs text-navy-400 font-medium">
-                            ({formatDate(invoice.invoiceDate)})
-                          </span>
-                          {isSelected && (
-                            <span className="badge badge-saffron text-[10px] py-0.5 px-2 font-semibold">
-                              Editing Now
+                return (
+                  <motion.div
+                    key={invoice.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all space-y-3.5 ${
+                      isSelected
+                        ? "border-saffron-500 bg-saffron-50/70 shadow-soft ring-2 ring-saffron-300/60"
+                        : "border-cream-200/90 bg-white hover:border-saffron-300 shadow-2xs hover:shadow-soft group"
+                    }`}
+                  >
+                    {/* Row 1: Invoice #, Date, Plate, Net Total */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-cream-200 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0 mt-0.5">
+                          <FileText className="w-5 h-5 text-navy-600 group-hover:text-saffron-600 transition-colors" />
+                        </div>
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-display text-base font-bold text-navy-950">
+                              #{invoice.invoiceNumber}
+                            </h3>
+                            <span className="text-xs text-navy-400 font-medium">
+                              ({formatDate(invoice.invoiceDate)})
                             </span>
-                          )}
-                        </div>
+                            {isSelected && (
+                              <span className="badge badge-saffron text-[10px] py-0.5 px-2 font-semibold">
+                                Editing Now
+                              </span>
+                            )}
+                          </div>
 
-                        {/* Vehicle Number Display with Indian Plate chip aesthetic */}
-                        <div className="flex items-center gap-2 text-xs text-navy-600 mt-1.5 flex-wrap">
-                          {isLinkedToFleet ? (
-                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
-                              <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
-                                {plateJurisdiction.displayPill}
-                              </span>
-                              <span className="font-mono text-xs font-bold text-navy-950 tracking-wider whitespace-nowrap">
-                                {resolvedPlate}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-800 font-mono text-xs font-semibold shrink-0 whitespace-nowrap">
-                              <span className="whitespace-nowrap">
-                                {invoice.vehicleNumberForInvoice || "Unlinked"}
-                              </span>
-                              <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded uppercase font-bold shrink-0">
-                                Legacy
-                              </span>
-                            </div>
-                          )}
+                          {/* Vehicle Number Display with Indian Plate chip aesthetic */}
+                          <div className="flex items-center gap-2 text-xs text-navy-600 mt-1.5 flex-wrap">
+                            {isLinkedToFleet ? (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100/90 border border-amber-300/80 shadow-2xs shrink-0 whitespace-nowrap">
+                                <span className="text-[9px] font-bold text-amber-900 tracking-wider shrink-0">
+                                  {plateJurisdiction.displayPill}
+                                </span>
+                                <span className="font-mono text-xs font-bold text-navy-950 tracking-wider whitespace-nowrap">
+                                  {resolvedPlate}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-800 font-mono text-xs font-semibold shrink-0 whitespace-nowrap">
+                                <span className="whitespace-nowrap">
+                                  {invoice.vehicleNumberForInvoice ||
+                                    "Unlinked"}
+                                </span>
+                                <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded uppercase font-bold shrink-0">
+                                  Legacy
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Net Billed Total Pill */}
-                    <div className="bg-cream-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0 sm:text-right sm:pl-3">
-                      <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
-                        Net Billed Total
-                      </span>
-                      <span className="font-mono text-sm sm:text-base font-bold text-saffron-700 leading-tight whitespace-nowrap mt-0.5 sm:mt-1.5 block">
-                        {formatCurrency(invoice.roundedTotal)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Billed Client */}
-                  <div className="pt-2 border-t border-cream-200/60 flex items-start gap-2.5">
-                    <Building2 className="w-4 h-4 text-navy-400 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
-                        Billed Client
-                      </span>
-                      <p className="text-sm font-semibold text-navy-900 break-words leading-snug">
-                        {client?.name || "Unknown Client"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Row 3: Operational Metrics Pills */}
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 text-navy-700 text-xs shadow-2xs">
-                      <ClipboardList className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
-                      <span className="font-medium">
-                        {invoice.entryIds.length}{" "}
-                        {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
-                      </span>
-                      <span className="text-navy-300">•</span>
-                      <span className="text-navy-500 font-medium">
-                        {totalDays} {totalDays === 1 ? "day" : "days"}
-                      </span>
-                    </div>
-
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
-                      <span>{totalKms} km</span>
-                      <span className="text-navy-300">•</span>
-                      <span>{formatDurationWithUnits(totalHours)}</span>
-                    </div>
-
-                    {totalExtraKms > 0 && (
-                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
-                        <TrendingUp className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
-                        <span>+{totalExtraKms} km</span>
-                      </div>
-                    )}
-
-                    {invoice.totalTollParking > 0 && (
-                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
-                        <span>
-                          Toll: {formatCurrency(invoice.totalTollParking)}
+                      {/* Net Billed Total Pill */}
+                      <div className="bg-cream-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-cream-200/70 flex sm:flex-col items-center sm:items-end justify-between shrink-0 sm:text-right sm:pl-3">
+                        <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                          Net Billed Total
+                        </span>
+                        <span className="font-mono text-sm sm:text-base font-bold text-saffron-700 leading-tight whitespace-nowrap mt-0.5 sm:mt-1.5 block">
+                          {formatCurrency(invoice.roundedTotal)}
                         </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Row 4: Card Actions Toolbar */}
-                  <div className="pt-3 border-t border-cream-200/80 flex items-center justify-end gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                      <button
-                        onClick={() => setSelectedInvoiceId(invoice.id)}
-                        className={`btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 transition-all ${
-                          isSelected
-                            ? "bg-saffron-100 text-saffron-800 border-saffron-300"
-                            : ""
-                        }`}
-                        title="Edit invoice details"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-navy-600" />
-                        <span>{isSelected ? "Editing" : "Edit"}</span>
-                      </button>
+                    {/* Row 2: Billed Client */}
+                    <div className="pt-2 border-t border-cream-200/60 flex items-start gap-2.5">
+                      <Building2 className="w-4 h-4 text-navy-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-navy-400 tracking-wider block">
+                          Billed Client
+                        </span>
+                        <p className="text-sm font-semibold text-navy-900 wrap-break-word leading-snug">
+                          {client?.name || "Unknown Client"}
+                        </p>
+                      </div>
+                    </div>
 
-                      {client && invoiceTotals && companyInfo && (
-                        <InvoicePDFDownload
-                          companyInfo={companyInfo}
-                          client={client}
-                          vehicleNumber={resolvedPlate}
-                          invoiceNumber={invoice.invoiceNumber}
-                          invoiceDate={invoice.invoiceDate}
-                          entries={invoiceEntries}
-                          totals={invoiceTotals}
-                          timeFormat={timeFormat}
-                          iconOnly
-                          logoBase64={logoBase64}
-                          signatureBase64={signatureBase64}
-                        />
+                    {/* Row 3: Operational Metrics Pills */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cream-200/60">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 text-navy-700 text-xs shadow-2xs">
+                        <ClipboardList className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                        <span className="font-medium">
+                          {invoice.entryIds.length}{" "}
+                          {invoice.entryIds.length === 1 ? "Trip" : "Trips"}
+                        </span>
+                        <span className="text-navy-300">•</span>
+                        <span className="text-navy-500 font-medium">
+                          {totalDays} {totalDays === 1 ? "day" : "days"}
+                        </span>
+                      </div>
+
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cream-50/80 border border-cream-200/80 font-mono text-xs text-navy-800 shadow-2xs">
+                        <span>{totalKms} km</span>
+                        <span className="text-navy-300">•</span>
+                        <span>{formatDurationWithUnits(totalHours)}</span>
+                      </div>
+
+                      {totalExtraKms > 0 && (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-saffron-50 border border-saffron-200/90 text-saffron-800 text-xs font-semibold shadow-2xs">
+                          <TrendingUp className="w-3.5 h-3.5 text-saffron-600 shrink-0" />
+                          <span>+{totalExtraKms} km</span>
+                        </div>
                       )}
 
-                      <button
-                        onClick={() => {
-                          setDeleteTargetId(invoice.id);
-                          setShowDeleteConfirm(true);
-                        }}
-                        className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 transition-colors"
-                        title="Delete invoice"
-                        aria-label="Delete invoice"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {invoice.totalTollParking > 0 && (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-navy-50 border border-navy-200/70 text-navy-700 text-xs font-medium shadow-2xs">
+                          <span>
+                            Toll: {formatCurrency(invoice.totalTollParking)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+
+                    {/* Row 4: Card Actions Toolbar */}
+                    <div className="pt-3 border-t border-cream-200/80 flex items-center justify-end gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                        <button
+                          onClick={() => setSelectedInvoiceId(invoice.id)}
+                          className={`btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 transition-all ${
+                            isSelected
+                              ? "bg-saffron-100 text-saffron-800 border-saffron-300"
+                              : ""
+                          }`}
+                          title="Edit invoice details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-navy-600" />
+                          <span>{isSelected ? "Editing" : "Edit"}</span>
+                        </button>
+
+                        {client && invoiceTotals && companyInfo && (
+                          <InvoicePDFDownload
+                            companyInfo={companyInfo}
+                            client={client}
+                            vehicleNumber={resolvedPlate}
+                            invoiceNumber={invoice.invoiceNumber}
+                            invoiceDate={invoice.invoiceDate}
+                            entries={invoiceEntries}
+                            totals={invoiceTotals}
+                            timeFormat={timeFormat}
+                            iconOnly
+                            logoBase64={logoBase64}
+                            signatureBase64={signatureBase64}
+                          />
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setDeleteTargetId(invoice.id);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 transition-colors"
+                          title="Delete invoice"
+                          aria-label="Delete invoice"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalItems={filteredInvoices.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+              itemLabel="invoices"
+              className="mt-5"
+            />
+          </>
         )}
       </div>
 
