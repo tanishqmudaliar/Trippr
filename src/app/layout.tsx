@@ -4,6 +4,8 @@ import "./globals.css";
 import { AppProvider } from "@/components/AppProvider";
 import { SetupGuard } from "@/components/SetupGuard";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -168,6 +170,8 @@ export default function RootLayout({
             <SetupGuard>{children}</SetupGuard>
           </AppProvider>
         </NotificationProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
